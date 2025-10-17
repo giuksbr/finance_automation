@@ -1,0 +1,111 @@
+[
+  {
+    "symbol_canonical": "NYSE:NVO",
+    "window_used": "7d",
+    "features": {
+      "chg_7d_pct": -8.78,
+      "chg_10d_pct": null,
+      "rsi14": 45.59,
+      "atr14": 1.634843,
+      "bb_lower": 54.147847,
+      "bb_ma20": 57.72025,
+      "close": 54.375
+    },
+    "derivatives": {},
+    "levels": [
+      "N3"
+    ],
+    "confidence": "low",
+    "sources": [
+      "stooq_only"
+    ]
+  },
+  {
+    "symbol_canonical": "BINANCE:FETUSDT",
+    "window_used": "7d",
+    "features": {
+      "chg_7d_pct": -23.18,
+      "chg_10d_pct": null,
+      "rsi14": 9.31,
+      "atr14": 0.06605,
+      "bb_lower": 0.221972,
+      "bb_ma20": 0.47271,
+      "close": 0.2658
+    },
+    "derivatives": {},
+    "levels": [
+      "N1",
+      "N2",
+      "N3C"
+    ],
+    "confidence": "high",
+    "sources": [
+      "binance_only"
+    ]
+  },
+  {
+    "symbol_canonical": "BINANCE:OPUSDT",
+    "window_used": "7d",
+    "features": {
+      "chg_7d_pct": -16.1,
+      "chg_10d_pct": null,
+      "rsi14": 19.51,
+      "atr14": 0.087807,
+      "bb_lower": 0.365118,
+      "bb_ma20": 0.615405,
+      "close": 0.4175
+    },
+    "derivatives": {},
+    "levels": [
+      "N2",
+      "N3C"
+    ],
+    "confidence": "low",
+    "sources": [
+      "binance_only"
+    ]
+  },
+  {
+    "symbol_canonical": "BINANCE:AAVEUSDT",
+    "window_used": "7d",
+    "features": {
+      "chg_7d_pct": -9.71,
+      "chg_10d_pct": null,
+      "rsi14": 28.86,
+      "atr14": 34.355714,
+      "bb_lower": 212.50526,
+      "bb_ma20": 264.4245,
+      "close": 202.66
+    },
+    "derivatives": {},
+    "levels": [
+      "N3",
+      "N3C"
+    ],
+    "confidence": "low",
+    "sources": [
+      "binance_only"
+    ]
+  },
+  {
+    "symbol_canonical": "BINANCE:NEARUSDT",
+    "window_used": "7d",
+    "features": {
+      "chg_7d_pct": -10.37,
+      "chg_10d_pct": null,
+      "rsi14": 24.36,
+      "atr14": 0.326357,
+      "bb_lower": 2.095082,
+      "bb_ma20": 2.6836,
+      "close": 2.135
+    },
+    "derivatives": {},
+    "levels": [
+      "N3C"
+    ],
+    "confidence": "low",
+    "sources": [
+      "binance_only"
+    ]
+  }
+]
