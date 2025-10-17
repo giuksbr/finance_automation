@@ -1,69 +1,98 @@
 from __future__ import annotations
-import io, requests, pandas as pd
-from datetime import datetime, timezone
+import io
+import math
+import time
+from typing import Optional, Tuple
 
-# ---------- helpers de mapeamento ----------
-def stooq_ticker_from_symbol_canonical(sym_can: str) -> str:
-    # EX: NASDAQ:NVDA -> nvda.us | NYSEARCA:VUG -> vug.us | NYSE:BRK.B -> brk-b.us
-    exch, tick = sym_can.split(":")
-    return tick.lower().replace(".", "-") + ".us"
+import pandas as pd
+import requests
 
-def yahoo_symbol_from_symbol_canonical(sym_can: str) -> str:
-    # Para Yahoo, geralmente o ticker "cru" funciona; BRK.B vira BRK-B
-    exch, tick = sym_can.split(":")
-    return tick.replace(".", "-").replace("/", "-")
 
-# ---------- FETCHERS ----------
-def fetch_stooq(sym_can: str, days: int) -> pd.DataFrame | None:
-    t = stooq_ticker_from_symbol_canonical(sym_can)
-    url = f"https://stooq.com/q/d/l/?s={t}&i=d"
-    r = requests.get(url, timeout=15)
-    if r.status_code != 200 or "No data" in r.text:
-        return None
-    df = pd.read_csv(io.StringIO(r.text))
-    if df.empty:
-        return None
-    df = df.rename(columns={"Date": "Date", "Open": "open", "High": "high", "Low": "low", "Close": "close"})
-    df["Date"] = pd.to_datetime(df["Date"]).dt.date.astype(str)
-    return df.tail(days).reset_index(drop=True)
+# ==========================================================
+# Helpers de mapeamento
+# ==========================================================
 
-def fetch_yahoo(sym_can: str, days: int) -> pd.DataFrame | None:
+def _split_symbol(sym: str) -> Tuple[str, str]:
     """
-    Usa a API JSON v8 (chart) do Yahoo, que é mais resiliente do que o CSV.
-    Ex: https://query1.finance.yahoo.com/v8/finance/chart/NVO?range=90d&interval=1d
+    "NASDAQ:NVDA" -> ("NASDAQ", "NVDA")
     """
-    sym = yahoo_symbol_from_symbol_canonical(sym_can)
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range=90d&interval=1d&includePrePost=false"
-    r = requests.get(url, timeout=20)
-    if r.status_code != 200:
-        return None
-    j = r.json()
-    res = j.get("chart", {}).get("result")
-    if not res:
-        return None
-    result = res[0]
-    ts = result.get("timestamp") or []
-    ind = result.get("indicators", {}).get("quote", [])
-    if not ts or not ind:
-        return None
-    q = ind[0]
-    close = q.get("close") or []
-    open_ = q.get("open") or []
-    high = q.get("high") or []
-    low  = q.get("low") or []
+    parts = sym.strip().upper().split(":")
+    if len(parts) != 2:
+        return "", sym.strip().upper()
+    return parts[0], parts[1]
 
-    rows = []
-    for i, t in enumerate(ts):
-        # timestamp UTC -> date ISO (YYYY-MM-DD)
-        d = datetime.fromtimestamp(int(t), tz=timezone.utc).date().isoformat()
-        c = close[i] if i < len(close) else None
-        o = open_[i] if i < len(open_) else None
-        h = high[i]  if i < len(high)  else None
-        l = low[i]   if i < len(low)   else None
-        if c is None:
-            continue
-        rows.append({"Date": d, "open": o, "high": h, "low": l, "close": c})
-    if not rows:
+
+def _to_stooq_ticker(sym: str) -> Optional[str]:
+    """
+    Regras Stooq (US):
+      - ticker minúsculo
+      - "." vira "-" (ex.: BRK.B -> brk-b)
+      - sufixo ".us"
+    """
+    venue, tick = _split_symbol(sym)
+    if not tick:
         return None
-    df = pd.DataFrame(rows).dropna(subset=["close"])
-    return df.tail(days).reset_index(drop=True)
+    t = tick.lower().replace(".", "-")
+    return f"{t}.us"
+
+
+def _to_yahoo_symbol(sym: str) -> Optional[str]:
+    """
+    Yahoo:
+      - Ticker sem venue
+      - "." vira "-" para classes (BRK.B -> BRK-B)
+      - ETFs/ARCA usam o mesmo ticker (VUG)
+    """
+    venue, tick = _split_symbol(sym)
+    if not tick:
+        return None
+    return tick.replace(".", "-")
+
+
+# ==========================================================
+# Fetchers
+# ==========================================================
+
+def fetch_stooq(sym: str, days: int = 30) -> pd.DataFrame:
+    """
+    Stooq CSV diário:
+      https://stooq.com/q/d/l/?s=<ticker>.us&i=d
+    Retorna DataFrame com colunas: date (str 'YYYY-MM-DD'), close (float).
+    days é só uma dica (pegamos tudo que voltar e o consumidor recorta).
+    """
+    ticker = _to_stooq_ticker(sym)
+    if not ticker:
+        return pd.DataFrame(columns=["date", "close"])
+
+    url = f"https://stooq.com/q/d/l/?s={ticker}&i=d"
+    try:
+        r = requests.get(url, timeout=15)
+        if r.status_code != 200 or ("No data" in r.text):
+            return pd.DataFrame(columns=["date", "close"])
+        df = pd.read_csv(io.StringIO(r.text))
+        # Esperado: Date,Open,High,Low,Close,Volume
+        if "Date" not in df.columns or "Close" not in df.columns:
+            return pd.DataFrame(columns=["date", "close"])
+        df = df[["Date", "Close"]].rename(columns={"Date": "date", "Close": "close"})
+        # Sanitização básica
+        df = df.dropna().copy()
+        df["close"] = pd.to_numeric(df["close"], errors="coerce")
+        df = df.dropna(subset=["close"])
+        # Garantir string de data YYYY-MM-DD
+        df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        df = df.dropna(subset=["date"])
+        return df.reset_index(drop=True)
+    except Exception:
+        return pd.DataFrame(columns=["date", "close"])
+
+
+def fetch_yahoo(sym: str, days: int = 30) -> pd.DataFrame:
+    """
+    Yahoo v8 chart:
+      https://query1.finance.yahoo.com/v8/finance/chart/<symbol>?range=2mo&interval=1d
+    Prioriza adjclose (se existir), senão usa close.
+    Retorna DataFrame com colunas: date (YYYY-MM-DD), close (float).
+    """
+    ysym = _to_yahoo_symbol(sym)
+    if not ysym:
+        return pd.DataFra
