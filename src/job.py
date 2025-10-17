@@ -50,52 +50,62 @@ def main():
     sig_list = []
     errors = []
 
-    def compute_indicators_and_signal(asset_type: str, sym_can: str, df: pd.DataFrame, used_tag: str):
-        close = df["close"]
-        rsi14 = rsi(close, 14).iloc[-1] if len(df) >= 14 else None
-        atr14 = atr(df, 14).iloc[-1] if len(df) >= 14 else None
-        ma20, bb_up, bb_lo = bollinger_bands(close, 20, 2.0)
-        bb_ma20 = ma20.iloc[-1] if len(close) >= 20 else None
-        bb_lower = bb_lo.iloc[-1] if len(close) >= 20 else None
-        chg7 = pct_change_n(df, 7)
-        chg10 = pct_change_n(df, 10)
+def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.DataFrame, df_full: pd.DataFrame, used_tag: str):
+    import math
+    # Indicadores com df_full (até 30 dias)
+    close_full = df_full["close"]
+    rsi14 = rsi(close_full, 14).iloc[-1] if len(df_full) >= 14 else None
+    atr14 = atr(df_full, 14).iloc[-1] if len(df_full) >= 14 else None
+    ma20, bb_up, bb_lo = bollinger_bands(close_full, 20, 2.0)
+    bb_ma20 = ma20.iloc[-1] if len(close_full) >= 20 else None
+    bb_lower = bb_lo.iloc[-1] if len(close_full) >= 20 else None
 
-        bucket = ind_payload["eq"] if asset_type=="eq" else ind_payload["cr"]
-        def _safe(v, nd=2):
-            if v is None: return None
-            if isinstance(v, float) and math.isnan(v): return None
-            return round(float(v), nd)
-        bucket[sym_can] = {"RSI14": _safe(rsi14,2), "ATR14": _safe(atr14,6), "BB_MA20": _safe(bb_ma20,6), "BB_LOWER": _safe(bb_lower,6)}
+    # Variações com df_win (janela alvo 7–10)
+    chg7 = pct_change_n(df_win, 7)
+    chg10 = pct_change_n(df_win, 10)
+    last_close = float(df_win["close"].iloc[-1])
 
-        lvls = n_levels_from_features(asset_type, chg7, chg10,
-                                      None if rsi14 is None else float(rsi14),
-                                      None if atr14 is None else float(atr14),
-                                      None if bb_lower is None else float(bb_lower),
-                                      None if bb_ma20 is None else float(bb_ma20),
-                                      float(df["close"].iloc[-1]))
-        if lvls:
-            srcs = used_tag.split("|")
-            sig = {
-                "symbol_canonical": sym_can,
-                "window_used": ("7d" if chg7 is not None else ("10d" if chg10 is not None else used_tag)),
-                "features": {
-                    "chg_7d_pct": None if chg7 is None else round(float(chg7), 2),
-                    "chg_10d_pct": None if chg10 is None else round(float(chg10), 2),
-                    "rsi14": None if rsi14 is None else round(float(rsi14), 2),
-                    "atr14": None if atr14 is None else round(float(atr14), 6),
-                    "bb_lower": None if bb_lower is None else round(float(bb_lower), 6),
-                    "bb_ma20": None if bb_ma20 is None else round(float(bb_ma20), 6),
-                    "close": round(float(df['close'].iloc[-1]), 6),
-                },
-                "derivatives": {},
-                "levels": lvls,
-                "confidence": "low",
-                "sources": srcs,
-            }
-            from .signals import confidence_from_levels
-            sig["confidence"] = confidence_from_levels(sig["levels"], sig["sources"])
-            return sig
-        return None
+    bucket = ind_payload["eq"] if asset_type=="eq" else ind_payload["cr"]
+    def _safe(v, nd=2):
+        if v is None: return None
+        if isinstance(v, float) and math.isnan(v): return None
+        return round(float(v), nd)
+    bucket[sym_can] = {
+        "RSI14": _safe(rsi14, 2),
+        "ATR14": _safe(atr14, 6),
+        "BB_MA20": _safe(bb_ma20, 6),
+        "BB_LOWER": _safe(bb_lower, 6),
+    }
+
+    lvls = n_levels_from_features(asset_type, chg7, chg10,
+                                  None if rsi14 is None else float(rsi14),
+                                  None if atr14 is None else float(atr14),
+                                  None if bb_lower is None else float(bb_lower),
+                                  None if bb_ma20 is None else float(bb_ma20),
+                                  last_close)
+    if lvls:
+        srcs = used_tag.split("|")
+        sig = {
+            "symbol_canonical": sym_can,
+            "window_used": ("7d" if chg7 is not None else ("10d" if chg10 is not None else used_tag)),
+            "features": {
+                "chg_7d_pct": None if chg7 is None else round(float(chg7), 2),
+                "chg_10d_pct": None if chg10 is None else round(float(chg10), 2),
+                "rsi14": None if rsi14 is None else round(float(rsi14), 2),
+                "atr14": None if atr14 is None else round(float(atr14), 6),
+                "bb_lower": None if bb_lower is None else round(float(bb_lower), 6),
+                "bb_ma20": None if bb_ma20 is None else round(float(bb_ma20), 6),
+                "close": round(last_close, 6),
+            },
+            "derivatives": {},
+            "levels": lvls,
+            "confidence": "low",
+            "sources": srcs,
+        }
+        from .signals import confidence_from_levels
+        sig["confidence"] = confidence_from_levels(sig["levels"], sig["sources"])
+        return sig
+    return None
 
     for sym in wl.get("eq", []):
         try:
@@ -109,9 +119,10 @@ def main():
                 else:
                     errors.append(f"PRICEGUARD_FAIL:{sym}")
                     continue
-            df, used_n = process_series(accepted, cfg.get("window_days", 7))
-            ohlcv_payload["eq"][sym] = {"window": f"{used_n}d", "count": int(len(df))}
-            sig = compute_indicators_and_signal("eq", sym, df, src_tag)
+            df_full = accepted.sort_values("Date").reset_index(drop=True)
+            df_win, used_n = process_series(df_full, cfg.get("window_days", 7))
+            ohlcv_payload["eq"][sym] = {"window": f"{used_n}d", "count": int(len(df_win))}
+            sig = compute_indicators_and_signal("eq", sym, df_win, df_full, src_tag)
             if sig: sig_list.append(sig)
         except Exception:
             errors.append(f"HIST_FETCH_FAIL:{sym}")
@@ -128,9 +139,10 @@ def main():
                 else:
                     errors.append(f"PRICEGUARD_FAIL:{sym}")
                     continue
-            df, used_n = process_series(accepted, cfg.get("window_days", 7))
-            ohlcv_payload["cr"][sym] = {"window": f"{used_n}d", "count": int(len(df))}
-            sig = compute_indicators_and_signal("cr", sym, df, src_tag)
+            df_full = accepted.sort_values("Date").reset_index(drop=True)
+            df_win, used_n = process_series(df_full, cfg.get("window_days", 7))
+            ohlcv_payload["cr"][sym] = {"window": f"{used_n}d", "count": int(len(df_win))}
+            sig = compute_indicators_and_signal("cr", sym, df_win, df_full, src_tag)
             if sig: sig_list.append(sig)
         except Exception:
             errors.append(f"HIST_FETCH_FAIL:{sym}")

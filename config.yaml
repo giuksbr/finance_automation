@@ -1,4 +1,4 @@
-feed_url: "https://raw.githubusercontent.com/giuksbr/finance_feed/refs/heads/main/feed.json"
+feed_url: "https://raw.githubusercontent.com/giuksbr/finance_feed/main/feed.json"
 
 storage:
   backend: "repo"
@@ -12,7 +12,7 @@ priceguard:
   cr_abs_chg7d_max: 0.40
 
 window_days: 7
-window_fallback_days: 10
+window_fallback_days: 30
 
 tz: "America/Sao_Paulo"
 out_dir: "out"
