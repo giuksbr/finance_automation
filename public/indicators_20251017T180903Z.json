@@ -1,0 +1,344 @@
+{
+  "generated_at_brt": "2025-10-17T15:07:35-0300",
+  "eq": {
+    "NYSEARCA:VUG": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:IVW": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:IUSG": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:SGOV": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:QQQM": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:SOXX": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:NVDA": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:AVGO": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:TSM": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:PLTR": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:VST": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:ARGT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:SPY": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:VOO": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:VTI": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:QQQ": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:XLK": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:SMH": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:IJR": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:IWF": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:IWD": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:XLV": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:XLF": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSEARCA:XLE": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:MSFT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:AAPL": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:GOOGL": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:AMZN": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:META": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:AMD": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:LRCX": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NASDAQ:ASML": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:COST": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:UNH": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:JPM": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:BRK.B": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:NVO": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "NYSE:LLY": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    }
+  },
+  "cr": {
+    "BINANCE:BTCUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:ETHUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:SOLUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:LINKUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:XRPUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:FETUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:ADAUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:DOTUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:ATOMUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:ARBUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:OPUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:AAVEUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:UNIUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:LTCUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:TRXUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:TONUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:NEARUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    },
+    "BINANCE:INJUSDT": {
+      "RSI14": null,
+      "ATR14": null,
+      "BB_MA20": null,
+      "BB_LOWER": null
+    }
+  },
+  "errors": []
+}
