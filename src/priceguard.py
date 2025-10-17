@@ -53,12 +53,43 @@ def _prepare(df: pd.DataFrame) -> pd.DataFrame:
     return out[["date", "close"]]
 
 
-def _cfg_val(cfg: dict, key: str, default: float) -> float:
-    """Aceita tanto cfg direto quanto cfg['priceguard'] aninhado."""
-    if key in cfg:
-        return float(cfg.get(key, default))
-    pg = cfg.get("priceguard", {})
-    return float(pg.get(key, default))
+def _cfg_val(cfg: object, key: str, default: float) -> float:
+    """
+    Lê 'key' de:
+      - dict (cfg[key] ou cfg['priceguard'][key])
+      - objeto (getattr(cfg, key, ...) ou getattr(cfg.priceguard, key, ...))
+    """
+    # dict direto
+    if isinstance(cfg, dict):
+        if key in cfg:
+            try:
+                return float(cfg[key])
+            except Exception:
+                pass
+        pg = cfg.get("priceguard", {})
+        if isinstance(pg, dict) and key in pg:
+            try:
+                return float(pg[key])
+            except Exception:
+                pass
+
+    # objeto com atributo direto
+    try:
+        val = getattr(cfg, key)
+        return float(val)
+    except Exception:
+        pass
+
+    # objeto com atributo 'priceguard' aninhado
+    try:
+        pg = getattr(cfg, "priceguard", None)
+        if pg is not None:
+            val = getattr(pg, key)
+            return float(val)
+    except Exception:
+        pass
+
+    return float(default)
 
 
 # =========================
@@ -68,7 +99,7 @@ def _cfg_val(cfg: dict, key: str, default: float) -> float:
 def accept_close_eq(
     stooq_df: pd.DataFrame | None,
     yahoo_df: pd.DataFrame | None,
-    cfg: dict,
+    cfg: object,
 ) -> Tuple[pd.DataFrame, Optional[str]]:
     """
     PriceGuard p/ EQ/ETF:
@@ -126,7 +157,7 @@ def accept_close_eq(
 def accept_close_cr(
     binance_df: pd.DataFrame | None,
     coingecko_df: pd.DataFrame | None,
-    cfg: dict,
+    cfg: object,
 ) -> Tuple[pd.DataFrame, Optional[str]]:
     """
     PriceGuard p/ CR:
@@ -156,7 +187,6 @@ def accept_close_cr(
 
         delta = abs(cc - cb) / cb
         if delta <= cr_delta_max:
-            # padrão: usamos a série do Binance (mais “tradeable”), mas tanto faz
             accepted = merged[["date", "close_bn"]].rename(columns={"close_bn": "close"})
             return accepted.reset_index(drop=True), "binance|coingecko"
         return pd.DataFrame(columns=["date", "close"]), "divergencia"
