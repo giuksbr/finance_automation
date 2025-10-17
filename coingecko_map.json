@@ -1,0 +1,11 @@
+{
+  "BTC": "bitcoin",
+  "ETH": "ethereum",
+  "SOL": "solana",
+  "LINK": "chainlink",
+  "XRP": "ripple",
+  "FET": "fetch-ai",
+  "ADA": "cardano",
+  "DOGE": "dogecoin",
+  "MATIC": "polygon"
+}
