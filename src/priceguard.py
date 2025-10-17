@@ -1,92 +1,108 @@
 from __future__ import annotations
-import math
+from typing import Tuple, Optional
 import pandas as pd
 
-def _last_aligned_close(df: pd.DataFrame) -> tuple[str | None, float | None]:
+
+def _pct(a: float | None, b: float | None) -> Optional[float]:
+    if a is None or b is None or b == 0:
+        return None
+    return (a / b) - 1.0
+
+
+def _chg7(df: pd.DataFrame) -> Optional[float]:
+    if df is None or df.empty or "close" not in df.columns or len(df) < 8:
+        return None
+    c = df["close"].tolist()
+    return _pct(c[-1], c[-8])
+
+
+def _sanity_single_source(df: pd.DataFrame, abs_7d_max: float) -> bool:
+    """
+    Sanidade estrita p/ single-source (design):
+      - >= 8 barras
+      - close > 0
+      - |Δ7d| <= abs_7d_max (ex.: 0.25 = 25%)
+    """
+    if df is None or df.empty or "close" not in df.columns or len(df) < 8:
+        return False
+    if pd.isna(df["close"].iloc[-1]) or float(df["close"].iloc[-1]) <= 0:
+        return False
+    chg7 = _chg7(df)
+    if chg7 is None:
+        return False
+    return abs(chg7) <= abs_7d_max
+
+
+def _prepare(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
-        return (None, None)
-    d = df.sort_values("Date").iloc[-1]
-    return (str(d["Date"]), float(d["close"]))
+        return pd.DataFrame(columns=["date", "close"])
+    out = df.copy()
+    if "date" not in out.columns or "close" not in out.columns:
+        return pd.DataFrame(columns=["date", "close"])
+    out = out.dropna(subset=["date", "close"]).copy()
+    out["date"] = pd.to_datetime(out["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    out["close"] = pd.to_numeric(out["close"], errors="coerce")
+    out = out.dropna(subset=["date", "close"])
+    out = out.sort_values("date").reset_index(drop=True)
+    return out[["date", "close"]]
 
-def _abs_pct_delta(a: float, b: float) -> float:
-    if a is None or b is None:
-        return math.inf
-    if a == 0:
-        return math.inf
-    return abs(a - b) / abs(a)
 
-# --------------------------------------------------------------------------------------
-# PRICEGUARD: EQUITIES / ETFs  (Stooq x Yahoo)
-# - Se ambas as fontes existem e alinham a data e Δ ≤ eq_delta_max -> aceita e tag "stooq|yahoo"
-# - Se apenas uma fonte válida -> aceita com tag "stooq_only" ou "yahoo_only"
-# - Se nenhuma fonte útil -> retorna (None, None)
-# --------------------------------------------------------------------------------------
-def accept_close_eq(stooq_df: pd.DataFrame | None,
-                    yahoo_df: pd.DataFrame | None,
-                    thresholds) -> tuple[pd.DataFrame | None, str | None]:
+def accept_close_eq(
+    stooq_df: pd.DataFrame | None,
+    yahoo_df: pd.DataFrame | None,
+    cfg: dict,
+) -> Tuple[pd.DataFrame, Optional[str]]:
+    """
+    PriceGuard p/ EQ/ETF:
+      - Duas fontes: aceitar se datas alinham e Δ <= eq_delta_max; marca 'stooq|yahoo'.
+      - Uma fonte: aceitar com sanidade estrita; marca 'stooq_only' ou 'yahoo_only'.
+      - Nenhuma: rejeita.
+    Retorna (df_aceito ['date','close'], tag).
+    """
+    eq_delta_max = float(cfg.get("eq_delta_max", 0.008))          # 0,8%
+    single_abs_7d_max = float(cfg.get("single_abs_7d_max", 0.25)) # 25%
 
-    s_date, s_close = _last_aligned_close(stooq_df)
-    y_date, y_close = _last_aligned_close(yahoo_df)
+    stq = _prepare(stooq_df)
+    yh = _prepare(yahoo_df)
 
-    both_available = (s_date is not None) and (y_date is not None)
-    if both_available and (s_date == y_date):
-        delta = _abs_pct_delta(s_close, y_close)
-        if delta <= thresholds.eq_delta_max:
-            # datas alinhadas e delta ok -> dupla-fonte
-            # preferimos a série do Stooq como "aceita" (padrão), mas o tag reflete ambas
-            accepted = stooq_df if stooq_df is not None else yahoo_df
-            return (accepted, "stooq|yahoo")
+    stq_empty = stq.empty
+    yh_empty = yh.empty
 
-    # fallback para single-fonte (se uma delas existir)
-    if stooq_df is not None and not stooq_df.empty:
-        return (stooq_df, "stooq_only")
-    if yahoo_df is not None and not yahoo_df.empty:
-        return (yahoo_df, "yahoo_only")
+    # 1) Duas fontes presentes → checa data/Δ
+    if not stq_empty and not yh_empty:
+        # alinha por data
+        merged = pd.merge(stq, yh, on="date", how="inner", suffixes=("_stq", "_yh"))
+        if merged.empty:
+            return pd.DataFrame(columns=["date", "close"]), "datas_desalinhadas"
 
-    return (None, None)
+        # usa a última data comum para o teste de Δ
+        last = merged.iloc[-1]
+        close_stq = float(last["close_stq"])
+        close_yh = float(last["close_yh"])
+        if close_stq <= 0 or close_yh <= 0:
+            return pd.DataFrame(columns=["date", "close"]), "close_invalido"
 
-# --------------------------------------------------------------------------------------
-# PRICEGUARD: CRYPTO  (Binance x CoinGecko)
-# - Se ambas as fontes existem e alinham a data e Δ ≤ cr_delta_max -> aceita e tag "binance|coingecko"
-# - Se apenas uma fonte válida -> aceita com tag "binance_only" ou "coingecko_only"
-# - Se nenhuma fonte útil -> (None, None)
-# --------------------------------------------------------------------------------------
-def accept_close_cr(binance_df: pd.DataFrame | None,
-                    coingecko_df: pd.DataFrame | None,
-                    thresholds) -> tuple[pd.DataFrame | None, str | None]:
+        delta = abs(close_yh - close_stq) / close_stq
+        if delta <= eq_delta_max:
+            # aprovado — usamos a série do Yahoo (ou poderíamos tirar média)
+            accepted = merged[["date", "close_yh"]].rename(columns={"close_yh": "close"})
+            return accepted.reset_index(drop=True), "stooq|yahoo"
+        else:
+            return pd.DataFrame(columns=["date", "close"]), "divergencia"
 
-    b_date, b_close = _last_aligned_close(binance_df)
-    c_date, c_close = _last_aligned_close(coingecko_df)
+    # 2) Apenas Stooq → sanidade estrita
+    if not stq_empty and yh_empty:
+        if _sanity_single_source(stq, single_abs_7d_max):
+            return stq, "stooq_only"
+        else:
+            return pd.DataFrame(columns=["date", "close"]), "stooq_sanity_fail"
 
-    both_available = (b_date is not None) and (c_date is not None)
-    if both_available and (b_date == c_date):
-        delta = _abs_pct_delta(b_close, c_close)
-        if delta <= thresholds.cr_delta_max:
-            # datas alinhadas e delta ok -> dupla-fonte
-            # preferimos Binance como "aceita" (padrão), mas o tag reflete ambas
-            accepted = binance_df if binance_df is not None else coingecko_df
-            return (accepted, "binance|coingecko")
+    # 3) Apenas Yahoo → sanidade estrita
+    if stq_empty and not yh_empty:
+        if _sanity_single_source(yh, single_abs_7d_max):
+            return yh, "yahoo_only"
+        else:
+            return pd.DataFrame(columns=["date", "close"]), "yahoo_sanity_fail"
 
-    # fallback single-fonte
-    if binance_df is not None and not binance_df.empty:
-        return (binance_df, "binance_only")
-    if coingecko_df is not None and not coingecko_df.empty:
-        return (coingecko_df, "coingecko_only")
-
-    return (None, None)
-
-# --------------------------------------------------------------------------------------
-# SANITY: movimento absoluto nos últimos 7 dias
-# - usado quando só 1 fonte existe: aceitamos o fechamento se o movimento 7d não for absurdo
-# --------------------------------------------------------------------------------------
-def sanity_last7_abs_move_ok(df: pd.DataFrame, is_crypto: bool, thresholds) -> bool:
-    if df is None or df.empty or len(df) < 8:
-        return False
-    df = df.sort_values("Date").reset_index(drop=True)
-    last = float(df["close"].iloc[-1])
-    prev = float(df["close"].iloc[-8])
-    if prev == 0:
-        return False
-    chg = abs(last / prev - 1.0)
-    limit = thresholds.cr_abs_chg7d_max if is_crypto else thresholds.eq_abs_chg7d_max
-    return chg <= limit
+    # 4) Nenhuma
+    return pd.DataFrame(columns=["date", "close"]), None
