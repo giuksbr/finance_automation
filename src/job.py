@@ -47,9 +47,8 @@ def main():
         cg_map = json.load(f)
 
     ohlcv_payload = {"generated_at_brt": now_brt_iso(), "eq": {}, "cr": {}, "errors": []}
-    ind_payload = {"generated_at_brt": now_brt_iso(), "eq": {}, "cr": {}, "errors": []}
-    sig_list = []
-    errors = []
+    ind_payload   = {"generated_at_brt": now_brt_iso(), "eq": {}, "cr": {}, "errors": []}
+    sig_list, errors = [], []
 
     def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.DataFrame, df_full: pd.DataFrame, used_tag: str):
         """Indicadores com df_full (~30d). Quedas com df_win (7–10d)."""
@@ -60,7 +59,7 @@ def main():
         bb_ma20 = ma20.iloc[-1] if len(close_full) >= 20 else None
         bb_lower = bb_lo.iloc[-1] if len(close_full) >= 20 else None
 
-        chg7 = pct_change_n(df_win, 7)
+        chg7  = pct_change_n(df_win, 7)
         chg10 = pct_change_n(df_win, 10)
         last_close = float(df_win["close"].iloc[-1])
 
@@ -70,15 +69,14 @@ def main():
             if isinstance(v, float) and math.isnan(v): return None
             return round(float(v), nd)
         bucket[sym_can] = {
-            "RSI14": _safe(rsi14, 2),
-            "ATR14": _safe(atr14, 6),
+            "RSI14":   _safe(rsi14, 2),
+            "ATR14":   _safe(atr14, 6),
             "BB_MA20": _safe(bb_ma20, 6),
-            "BB_LOWER": _safe(bb_lower, 6),
+            "BB_LOWER":_safe(bb_lower, 6),
         }
 
         lvls = n_levels_from_features(
-            asset_type,
-            chg7, chg10,
+            asset_type, chg7, chg10,
             None if rsi14 is None else float(rsi14),
             None if atr14 is None else float(atr14),
             None if bb_lower is None else float(bb_lower),
@@ -91,13 +89,13 @@ def main():
                 "symbol_canonical": sym_can,
                 "window_used": ("7d" if chg7 is not None else ("10d" if chg10 is not None else used_tag)),
                 "features": {
-                    "chg_7d_pct": None if chg7 is None else round(float(chg7), 2),
+                    "chg_7d_pct":  None if chg7  is None else round(float(chg7 ), 2),
                     "chg_10d_pct": None if chg10 is None else round(float(chg10), 2),
-                    "rsi14": None if rsi14 is None else round(float(rsi14), 2),
-                    "atr14": None if atr14 is None else round(float(atr14), 6),
-                    "bb_lower": None if bb_lower is None else round(float(bb_lower), 6),
-                    "bb_ma20": None if bb_ma20 is None else round(float(bb_ma20), 6),
-                    "close": round(last_close, 6),
+                    "rsi14":       None if rsi14 is None else round(float(rsi14), 2),
+                    "atr14":       None if atr14 is None else round(float(atr14), 6),
+                    "bb_lower":    None if bb_lower is None else round(float(bb_lower), 6),
+                    "bb_ma20":     None if bb_ma20 is None else round(float(bb_ma20), 6),
+                    "close":       round(last_close, 6),
                 },
                 "derivatives": {},
                 "levels": lvls,
@@ -108,9 +106,7 @@ def main():
             return sig
         return None
 
-    # =========================
-    # EQ/ETF
-    # =========================
+    # ========= EQ/ETF =========
     for sym in wl.get("eq", []):
         try:
             stq = fetch_stooq(sym, cfg.get("window_fallback_days", 30))
@@ -131,9 +127,7 @@ def main():
         except Exception:
             errors.append(f"HIST_FETCH_FAIL:{sym}")
 
-    # =========================
-    # CRYPTO
-    # =========================
+    # ========= CRYPTO =========
     for sym in wl.get("cr", []):
         try:
             bn = fetch_binance(sym,   cfg.get("window_fallback_days", 30))
