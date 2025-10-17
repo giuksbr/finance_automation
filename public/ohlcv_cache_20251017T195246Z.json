@@ -1,0 +1,178 @@
+{
+  "generated_at_brt": "2025-10-17T16:51:59-0300",
+  "eq": {
+    "NYSEARCA:VUG": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:IVW": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:IUSG": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:SGOV": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:QQQM": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:SOXX": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:NVDA": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:AVGO": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:TSM": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:PLTR": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:VST": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:ARGT": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:SPY": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:VOO": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:VTI": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:QQQ": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:XLK": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:SMH": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:IJR": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:IWF": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:IWD": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:XLV": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:XLF": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSEARCA:XLE": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:MSFT": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:AAPL": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:GOOGL": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:AMZN": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:META": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:AMD": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:LRCX": {
+      "window": "10d",
+      "count": 10
+    },
+    "NASDAQ:ASML": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:COST": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:UNH": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:JPM": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:BRK.B": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:NVO": {
+      "window": "10d",
+      "count": 10
+    },
+    "NYSE:LLY": {
+      "window": "10d",
+      "count": 10
+    }
+  },
+  "cr": {},
+  "errors": [
+    "PRICEGUARD_FAIL:BINANCE:BTCUSDT",
+    "PRICEGUARD_FAIL:BINANCE:ETHUSDT",
+    "PRICEGUARD_FAIL:BINANCE:SOLUSDT",
+    "PRICEGUARD_FAIL:BINANCE:LINKUSDT",
+    "PRICEGUARD_FAIL:BINANCE:XRPUSDT",
+    "PRICEGUARD_FAIL:BINANCE:FETUSDT",
+    "PRICEGUARD_FAIL:BINANCE:ADAUSDT",
+    "PRICEGUARD_FAIL:BINANCE:DOTUSDT",
+    "PRICEGUARD_FAIL:BINANCE:ATOMUSDT",
+    "PRICEGUARD_FAIL:BINANCE:ARBUSDT",
+    "PRICEGUARD_FAIL:BINANCE:OPUSDT",
+    "PRICEGUARD_FAIL:BINANCE:AAVEUSDT",
+    "PRICEGUARD_FAIL:BINANCE:UNIUSDT",
+    "PRICEGUARD_FAIL:BINANCE:LTCUSDT",
+    "PRICEGUARD_FAIL:BINANCE:TRXUSDT",
+    "PRICEGUARD_FAIL:BINANCE:TONUSDT",
+    "PRICEGUARD_FAIL:BINANCE:NEARUSDT",
+    "PRICEGUARD_FAIL:BINANCE:INJUSDT"
+  ]
+}
