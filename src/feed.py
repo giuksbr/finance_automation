@@ -1,8 +1,84 @@
 from __future__ import annotations
 import re
 import requests
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+
+# -----------------------------
+# Utils de parsing / normalização
+# -----------------------------
+
+VENUE_TICKER_RE = re.compile(r"^[A-Z0-9_.-]+:[A-Z0-9_.-]+$")
+
+def _is_symbol_string(x: Any) -> bool:
+    return isinstance(x, str) and VENUE_TICKER_RE.match(x) is not None
+
+def _mk_symbol_canonical(venue: Optional[str], ticker: Optional[str]) -> Optional[str]:
+    if not venue or not ticker:
+        return None
+    v = str(venue).strip().upper()
+    t = str(ticker).strip().upper().replace(" ", "")
+    # normalizações leves
+    t = t.replace(".", ".")  # placeholder para futuras normalizações
+    sc = f"{v}:{t}"
+    return sc if _is_symbol_string(sc) else None
+
+def _take_symbol_from_item(item: Any) -> Optional[str]:
+    """
+    Aceita:
+      - string "VENUE:TICKER"
+      - { "symbol_canonical": "VENUE:TICKER" }
+      - { "venue": "BINANCE", "ticker": "BTCUSDT" }
+      - { "exchange": "NASDAQ", "symbol": "NVDA" }  (normaliza -> NASDAQ:NVDA)
+    """
+    if _is_symbol_string(item):
+        return item.upper()
+
+    if isinstance(item, dict):
+        sc = item.get("symbol_canonical")
+        if _is_symbol_string(sc):
+            return sc.upper()
+
+        venue = item.get("venue") or item.get("exchange")
+        ticker = item.get("ticker") or item.get("symbol")
+        sc2 = _mk_symbol_canonical(venue, ticker)
+        if sc2:
+            return sc2
+
+    return None
+
+def _flat_symbols(arr: Any) -> List[str]:
+    out: List[str] = []
+    if isinstance(arr, list):
+        for v in arr:
+            sc = _take_symbol_from_item(v)
+            if sc:
+                out.append(sc)
+    return out
+
+def _get(d: Dict[str, Any], *path: str) -> Any:
+    cur = d
+    for k in path:
+        if not isinstance(cur, dict) or k not in cur:
+            return None
+        cur = cur[k]
+    return cur
+
+def _unique_preserve(seq: List[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for s in seq:
+        if not _is_symbol_string(s):
+            continue
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+# -----------------------------
+# Fetch do feed
+# -----------------------------
 
 def fetch_feed(url: str) -> dict:
     r = requests.get(url, timeout=20)
@@ -10,102 +86,90 @@ def fetch_feed(url: str) -> dict:
     return r.json()
 
 
-def _is_symbol_string(x: Any) -> bool:
-    return isinstance(x, str) and ":" in x and re.match(r"^[A-Z0-9_.-]+:[A-Z0-9_.-]+$", x) is not None
-
-
-def _flat_strings(lst: Any) -> List[str]:
-    out: List[str] = []
-    if isinstance(lst, list):
-        for v in lst:
-            if _is_symbol_string(v):
-                out.append(v)
-            elif isinstance(v, dict):
-                # tenta achar symbol_canonical dentro de dicts {symbol_canonical: "..."}
-                sc = v.get("symbol_canonical") if isinstance(v, dict) else None
-                if _is_symbol_string(sc):
-                    out.append(sc)
-    return out
-
-
-def _get_nested(dct: Dict[str, Any], *keys: str) -> Any:
-    cur = dct
-    for k in keys:
-        if not isinstance(cur, dict) or k not in cur:
-            return None
-        cur = cur[k]
-    return cur
-
+# -----------------------------
+# Extração das watchlists (cobre vários esquemas)
+# -----------------------------
 
 def extract_watchlists(feed: dict) -> dict:
     """
-    Extrai listas de símbolos para EQ (ações/ETFs) e CR (cripto) cobrindo:
-      - feed["watchlists"]["avenue"]["whitelist"|"candidate_pool"]
-      - feed["watchlists"]["binance"]["whitelist"|"candidate_pool"]
-      - feed["universe"]["watchlists"]["eq"|"cr"]
-      - arrays com dicts contendo "symbol_canonical"
-      - strings diretas "VENUE:TICKER" / "BINANCE:PAIR"
-
-    Retorna: {"eq":[...], "cr":[...]}
+    Retorna {"eq":[...], "cr":[...]} a partir de várias formas possíveis:
+      1) universe.watchlists.avenue.{whitelist|candidate_pool}
+      2) universe.watchlists.binance.{whitelist|candidate_pool}
+      3) watchlists.avenue.{whitelist|candidate_pool}
+      4) watchlists.binance.{whitelist|candidate_pool}
+      5) universe.watchlists.eq / universe.watchlists.cr (legado)
+      6) watchlists.eq / watchlists.cr (legado)
+      7) feed.avenue.watchlists.* / feed.binance.watchlists.* (fallback)
+      8) feed.symbols (lista mista; separa por prefixo BINANCE:)
+      9) itens como string "VENUE:TICKER" ou dicts com symbol_canonical / (venue,ticker) / (exchange,symbol)
     """
     eq: List[str] = []
     cr: List[str] = []
 
-    # 1) Formato "watchlists.avenue/binance.{whitelist|candidate_pool}"
-    for venue_key, bucket in (("avenue", "eq"), ("binance", "cr")):
-        for list_name in ("whitelist", "candidate_pool"):
-            arr = _get_nested(feed, "watchlists", venue_key, list_name)
+    # -------- formato principal atual: universe.watchlists.{avenue|binance}.{whitelist|candidate_pool}
+    for venue, bucket in (("avenue", "eq"), ("binance", "cr")):
+        for lst in ("whitelist", "candidate_pool"):
+            arr = _get(feed, "universe", "watchlists", venue, lst)
             if arr:
-                syms = _flat_strings(arr)
+                syms = _flat_symbols(arr)
                 if bucket == "eq":
                     eq.extend([s for s in syms if not s.startswith("BINANCE:")])
                 else:
                     cr.extend([s for s in syms if s.startswith("BINANCE:")])
 
-    # 2) Formato "universe.watchlists.eq/cr"
-    arr_eq = _get_nested(feed, "universe", "watchlists", "eq")
+    # -------- legado: watchlists.avenue/binance.{whitelist|candidate_pool}
+    for venue, bucket in (("avenue", "eq"), ("binance", "cr")):
+        for lst in ("whitelist", "candidate_pool"):
+            arr = _get(feed, "watchlists", venue, lst)
+            if arr:
+                syms = _flat_symbols(arr)
+                if bucket == "eq":
+                    eq.extend([s for s in syms if not s.startswith("BINANCE:")])
+                else:
+                    cr.extend([s for s in syms if s.startswith("BINANCE:")])
+
+    # -------- opcional: universe.watchlists.eq/cr (arrays diretos)
+    arr_eq = _get(feed, "universe", "watchlists", "eq")
     if arr_eq:
-        eq.extend(_flat_strings(arr_eq))
-    arr_cr = _get_nested(feed, "universe", "watchlists", "cr")
+        eq.extend(_flat_symbols(arr_eq))
+    arr_cr = _get(feed, "universe", "watchlists", "cr")
     if arr_cr:
-        cr.extend(_flat_strings(arr_cr))
+        cr.extend(_flat_symbols(arr_cr))
 
-    # 3) Formato plano "watchlists.eq/cr" (se existir)
-    arr_eq2 = _get_nested(feed, "watchlists", "eq")
+    # -------- legado: watchlists.eq/cr (arrays diretos)
+    arr_eq2 = _get(feed, "watchlists", "eq")
     if arr_eq2:
-        eq.extend(_flat_strings(arr_eq2))
-    arr_cr2 = _get_nested(feed, "watchlists", "cr")
+        eq.extend(_flat_symbols(arr_eq2))
+    arr_cr2 = _get(feed, "watchlists", "cr")
     if arr_cr2:
-        cr.extend(_flat_strings(arr_cr2))
+        cr.extend(_flat_symbols(arr_cr2))
 
-    # 4) Varredura de fallback: se o feed tiver uma lista genérica "symbols"
+    # -------- fallback: feed.avenue.watchlists.* / feed.binance.watchlists.*
+    for venue, bucket in (("avenue", "eq"), ("binance", "cr")):
+        for lst in ("whitelist", "candidate_pool"):
+            arr = _get(feed, venue, "watchlists", lst)
+            if arr:
+                syms = _flat_symbols(arr)
+                if bucket == "eq":
+                    eq.extend([s for s in syms if not s.startswith("BINANCE:")])
+                else:
+                    cr.extend([s for s in syms if s.startswith("BINANCE:")])
+
+    # -------- generic fallback: feed.symbols (misturado)
     arr_symbols = feed.get("symbols")
     if arr_symbols:
-        syms = _flat_strings(arr_symbols)
+        syms = _flat_symbols(arr_symbols)
         eq.extend([s for s in syms if not s.startswith("BINANCE:")])
         cr.extend([s for s in syms if s.startswith("BINANCE:")])
 
-    # Normalização: únicos e preserva ordem
-    def unique_preserve(seq: List[str]) -> List[str]:
-        seen = set()
-        out = []
-        for x in seq:
-            if not _is_symbol_string(x):
-                continue
-            if x not in seen:
-                seen.add(x)
-                out.append(x)
-        return out
+    # normalizações finais
+    eq = _unique_preserve(eq)
+    cr = _unique_preserve(cr)
 
-    eq = unique_preserve(eq)
-    cr = unique_preserve(cr)
-
-    # Filtro defensivo: qualquer coisa com prefixo BINANCE: é CR; o resto trata como EQ
-    # (isso evita caso misturem venues no mesmo array)
-    only_eq = [s for s in eq if not s.startswith("BINANCE:")]
-    extra_cr = [s for s in eq if s.startswith("BINANCE:")]
-    if extra_cr:
-        cr = unique_preserve(cr + extra_cr)
-        eq = only_eq
+    # correção extra: se veio BINANCE:* dentro de eq, move pra cr
+    if any(s.startswith("BINANCE:") for s in eq):
+        extra_cr = [s for s in eq if s.startswith("BINANCE:")]
+        eq = [s for s in eq if not s.startswith("BINANCE:")]
+        cr = _unique_preserve(cr + extra_cr)
 
     return {"eq": eq, "cr": cr}
