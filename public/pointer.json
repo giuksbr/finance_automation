@@ -1,6 +1,6 @@
 {
-  "ohlcv_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/ohlcv_cache_20251017T181318Z.json",
-  "indicators_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/indicators_20251017T181318Z.json",
-  "signals_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/n_signals_20251017T181318Z.json",
-  "expires_at_utc": "2025-10-18T18:13:18Z"
+  "ohlcv_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/ohlcv_cache_20251017T184033Z.json",
+  "indicators_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/indicators_20251017T184033Z.json",
+  "signals_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/n_signals_20251017T184033Z.json",
+  "expires_at_utc": "2025-10-18T18:40:33Z"
 }

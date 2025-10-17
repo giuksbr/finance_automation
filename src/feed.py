@@ -1,4 +1,3 @@
-# src/feed.py
 import requests, yaml
 
 def load_config():
@@ -32,4 +31,5 @@ def extract_watchlists(feed: dict) -> dict:
             sym = item.get("symbol_canonical")
             if sym:
                 wl["cr"].append(sym)
+
     return wl

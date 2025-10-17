@@ -28,6 +28,7 @@ class PGThresholds:
         self.cr_abs_chg7d_max = cr_abs_chg7d_max
 
 def process_series(df, target_days):
+    """Retorna janela curta (7–10) para calcular as quedas."""
     df = df.sort_values("Date").reset_index(drop=True)
     window_size = min(max(target_days, min(len(df), target_days+3)), len(df))
     return df.tail(window_size).reset_index(drop=True), window_size
@@ -50,72 +51,75 @@ def main():
     sig_list = []
     errors = []
 
-def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.DataFrame, df_full: pd.DataFrame, used_tag: str):
-    import math
-    # Indicadores com df_full (até 30 dias)
-    close_full = df_full["close"]
-    rsi14 = rsi(close_full, 14).iloc[-1] if len(df_full) >= 14 else None
-    atr14 = atr(df_full, 14).iloc[-1] if len(df_full) >= 14 else None
-    ma20, bb_up, bb_lo = bollinger_bands(close_full, 20, 2.0)
-    bb_ma20 = ma20.iloc[-1] if len(close_full) >= 20 else None
-    bb_lower = bb_lo.iloc[-1] if len(close_full) >= 20 else None
+    def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.DataFrame, df_full: pd.DataFrame, used_tag: str):
+        """Indicadores com df_full (~30d). Quedas com df_win (7–10d)."""
+        close_full = df_full["close"]
+        rsi14 = rsi(close_full, 14).iloc[-1] if len(df_full) >= 14 else None
+        atr14 = atr(df_full, 14).iloc[-1] if len(df_full) >= 14 else None
+        ma20, bb_up, bb_lo = bollinger_bands(close_full, 20, 2.0)
+        bb_ma20 = ma20.iloc[-1] if len(close_full) >= 20 else None
+        bb_lower = bb_lo.iloc[-1] if len(close_full) >= 20 else None
 
-    # Variações com df_win (janela alvo 7–10)
-    chg7 = pct_change_n(df_win, 7)
-    chg10 = pct_change_n(df_win, 10)
-    last_close = float(df_win["close"].iloc[-1])
+        chg7 = pct_change_n(df_win, 7)
+        chg10 = pct_change_n(df_win, 10)
+        last_close = float(df_win["close"].iloc[-1])
 
-    bucket = ind_payload["eq"] if asset_type=="eq" else ind_payload["cr"]
-    def _safe(v, nd=2):
-        if v is None: return None
-        if isinstance(v, float) and math.isnan(v): return None
-        return round(float(v), nd)
-    bucket[sym_can] = {
-        "RSI14": _safe(rsi14, 2),
-        "ATR14": _safe(atr14, 6),
-        "BB_MA20": _safe(bb_ma20, 6),
-        "BB_LOWER": _safe(bb_lower, 6),
-    }
-
-    lvls = n_levels_from_features(asset_type, chg7, chg10,
-                                  None if rsi14 is None else float(rsi14),
-                                  None if atr14 is None else float(atr14),
-                                  None if bb_lower is None else float(bb_lower),
-                                  None if bb_ma20 is None else float(bb_ma20),
-                                  last_close)
-    if lvls:
-        srcs = used_tag.split("|")
-        sig = {
-            "symbol_canonical": sym_can,
-            "window_used": ("7d" if chg7 is not None else ("10d" if chg10 is not None else used_tag)),
-            "features": {
-                "chg_7d_pct": None if chg7 is None else round(float(chg7), 2),
-                "chg_10d_pct": None if chg10 is None else round(float(chg10), 2),
-                "rsi14": None if rsi14 is None else round(float(rsi14), 2),
-                "atr14": None if atr14 is None else round(float(atr14), 6),
-                "bb_lower": None if bb_lower is None else round(float(bb_lower), 6),
-                "bb_ma20": None if bb_ma20 is None else round(float(bb_ma20), 6),
-                "close": round(last_close, 6),
-            },
-            "derivatives": {},
-            "levels": lvls,
-            "confidence": "low",
-            "sources": srcs,
+        bucket = ind_payload["eq"] if asset_type=="eq" else ind_payload["cr"]
+        def _safe(v, nd=2):
+            if v is None: return None
+            if isinstance(v, float) and math.isnan(v): return None
+            return round(float(v), nd)
+        bucket[sym_can] = {
+            "RSI14": _safe(rsi14, 2),
+            "ATR14": _safe(atr14, 6),
+            "BB_MA20": _safe(bb_ma20, 6),
+            "BB_LOWER": _safe(bb_lower, 6),
         }
-        from .signals import confidence_from_levels
-        sig["confidence"] = confidence_from_levels(sig["levels"], sig["sources"])
-        return sig
-    return None
 
+        lvls = n_levels_from_features(
+            asset_type,
+            chg7, chg10,
+            None if rsi14 is None else float(rsi14),
+            None if atr14 is None else float(atr14),
+            None if bb_lower is None else float(bb_lower),
+            None if bb_ma20 is None else float(bb_ma20),
+            last_close
+        )
+        if lvls:
+            srcs = used_tag.split("|")
+            sig = {
+                "symbol_canonical": sym_can,
+                "window_used": ("7d" if chg7 is not None else ("10d" if chg10 is not None else used_tag)),
+                "features": {
+                    "chg_7d_pct": None if chg7 is None else round(float(chg7), 2),
+                    "chg_10d_pct": None if chg10 is None else round(float(chg10), 2),
+                    "rsi14": None if rsi14 is None else round(float(rsi14), 2),
+                    "atr14": None if atr14 is None else round(float(atr14), 6),
+                    "bb_lower": None if bb_lower is None else round(float(bb_lower), 6),
+                    "bb_ma20": None if bb_ma20 is None else round(float(bb_ma20), 6),
+                    "close": round(last_close, 6),
+                },
+                "derivatives": {},
+                "levels": lvls,
+                "confidence": "low",
+                "sources": srcs,
+            }
+            sig["confidence"] = confidence_from_levels(sig["levels"], sig["sources"])
+            return sig
+        return None
+
+    # =========================
+    # EQ/ETF
+    # =========================
     for sym in wl.get("eq", []):
         try:
-            stq = fetch_stooq(sym, cfg.get("window_fallback_days", 10))
-            yh = fetch_yahoo(sym, cfg.get("window_fallback_days", 10))
+            stq = fetch_stooq(sym, cfg.get("window_fallback_days", 30))
+            yh  = fetch_yahoo(sym,  cfg.get("window_fallback_days", 30))
             accepted, src_tag = accept_close_eq(stq, yh, thresholds)
             if accepted is None:
                 cand = stq if stq is not None else yh
                 if cand is not None and sanity_last7_abs_move_ok(cand, False, thresholds):
-                    accepted, src_tag = cand, src_tag + "|sanity_ok"
+                    accepted, src_tag = cand, (src_tag + "|sanity_ok") if isinstance(src_tag, str) else "sanity_ok"
                 else:
                     errors.append(f"PRICEGUARD_FAIL:{sym}")
                     continue
@@ -127,15 +131,18 @@ def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.Data
         except Exception:
             errors.append(f"HIST_FETCH_FAIL:{sym}")
 
+    # =========================
+    # CRYPTO
+    # =========================
     for sym in wl.get("cr", []):
         try:
-            bn = fetch_binance(sym, cfg.get("window_fallback_days", 10))
-            cg = fetch_coingecko(sym, cg_map, cfg.get("window_fallback_days", 10))
+            bn = fetch_binance(sym,   cfg.get("window_fallback_days", 30))
+            cg = fetch_coingecko(sym, cg_map, cfg.get("window_fallback_days", 30))
             accepted, src_tag = accept_close_cr(bn, cg, thresholds)
             if accepted is None:
                 cand = bn if bn is not None else cg
                 if cand is not None and sanity_last7_abs_move_ok(cand, True, thresholds):
-                    accepted, src_tag = cand, src_tag + "|sanity_ok"
+                    accepted, src_tag = cand, (src_tag + "|sanity_ok") if isinstance(src_tag, str) else "sanity_ok"
                 else:
                     errors.append(f"PRICEGUARD_FAIL:{sym}")
                     continue
@@ -147,6 +154,8 @@ def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.Data
         except Exception:
             errors.append(f"HIST_FETCH_FAIL:{sym}")
 
+    # finalize e publicar
+    ohlcv_payload["errors"] = errors
     write_json(os.path.join(out_dir, "ohlcv_cache.json"), ohlcv_payload)
     write_json(os.path.join(out_dir, "indicators.json"), ind_payload)
     write_json(os.path.join(out_dir, "n_signals.json"), sig_list)
@@ -154,18 +163,24 @@ def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.Data
     st = cfg["storage"]
     if st.get("backend") == "repo":
         public_dir = st.get("public_dir", "public")
-        raw_base = st.get("raw_base_url", "https://raw.githubusercontent.com/<owner>/<repo>/main/")
+        raw_base   = st.get("raw_base_url", "https://raw.githubusercontent.com/<owner>/<repo>/main/")
         ts = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
         files_map = {
             "ohlcv_cache.json": f"ohlcv_cache_{ts}.json",
-            "indicators.json": f"indicators_{ts}.json",
-            "n_signals.json": f"n_signals_{ts}.json",
+            "indicators.json":  f"indicators_{ts}.json",
+            "n_signals.json":   f"n_signals_{ts}.json",
         }
         repo_copy_to_public(public_dir, out_dir, files_map)
         urls = repo_build_raw_urls(raw_base, public_dir, list(files_map.values()))
         pointer_local = os.path.join(out_dir, "pointer.json")
         exp = (dt.datetime.utcnow() + dt.timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        publish_pointer_local(pointer_local, urls[files_map["ohlcv_cache.json"]], urls[files_map["indicators.json"]], urls[files_map["n_signals.json"]], exp)
+        publish_pointer_local(
+            pointer_local,
+            urls[files_map["ohlcv_cache.json"]],
+            urls[files_map["indicators.json"]],
+            urls[files_map["n_signals.json"]],
+            exp
+        )
         import shutil; shutil.copyfile(pointer_local, os.path.join(public_dir, "pointer.json"))
         print("Publicação concluída em", public_dir)
     else:
