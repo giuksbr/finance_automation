@@ -1,0 +1,70 @@
+name: coverage-check
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+  schedule:
+    # 10:40 e 16:45 BRT ≈ 13:40 e 19:45 UTC (dias úteis)
+    - cron: "40 13 * * 1-5"
+    - cron: "45 19 * * 1-5"
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pointer snapshot (log curto)
+        run: |
+          python -m src.diag_pointer || true
+
+      - name: Cobertura estrita (falha se <100%)
+        run: |
+          python -m src.diag_coverage --strict
+
+      - name: Sumário de fontes (não bloqueia)
+        if: always()
+        run: |
+          python -m src.diag_confidence || true
+          python -m src.diag_signals_dump || true
+
+      - name: Near-miss (top 200) - opcional
+        if: always()
+        run: |
+          python -m src.diag_nearmiss 200 || true
+
+      - name: Upload CSV artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-diags
+          path: |
+            missing_ohlcv.csv
+            missing_indicators.csv
+            short_window.csv
+            single_source_signals.csv
+            not_in_feed_but_in_pointer.csv
+            nearmiss_review.csv
+          if-no-files-found: warn

@@ -1,3 +1,5 @@
+![coverage-check](https://github.com/giuksbr/finance_automation/actions/workflows/coverage_check.yml/badge.svg)
+
 # Pipeline automático de N-níveis (OHLCV 7d→10d + sinais) — **modo público (zero custo)**
 
 Este starter roda localmente ou via GitHub Actions e **publica JSONs no próprio repositório** (pasta `public/`).
