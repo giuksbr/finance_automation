@@ -20,24 +20,6 @@ def _chg7(df: pd.DataFrame) -> Optional[float]:
     return _pct(c[-1], c[-8])
 
 
-def sanity_last7_abs_move_ok(df: pd.DataFrame, abs_limit: float) -> bool:
-    """
-    Sanidade estrita para single-source:
-      - >= 8 barras
-      - close final > 0
-      - |Δ7d| <= abs_limit  (ex.: 0.25 = 25%)
-    """
-    if df is None or df.empty or "close" not in df.columns or len(df) < 8:
-        return False
-    last = pd.to_numeric(df["close"].iloc[-1], errors="coerce")
-    if pd.isna(last) or float(last) <= 0:
-        return False
-    chg7 = _chg7(df)
-    if chg7 is None:
-        return False
-    return abs(chg7) <= abs_limit
-
-
 def _prepare(df: pd.DataFrame) -> pd.DataFrame:
     """Normaliza DataFrame para colunas ['date','close'] ordenadas."""
     if df is None or df.empty:
@@ -93,6 +75,48 @@ def _cfg_val(cfg: object, key: str, default: float) -> float:
 
 
 # =========================
+# Sanidade single-source
+# =========================
+
+def sanity_last7_abs_move_ok(df: pd.DataFrame, *args) -> bool:
+    """
+    Suporta DOIS formatos de chamada:
+
+    (1) sanity_last7_abs_move_ok(df, abs_limit: float)
+        -> usa o limite informado (ex.: 0.25)
+
+    (2) sanity_last7_abs_move_ok(df, is_crypto: bool, cfg: object)
+        -> busca limite no cfg:
+           - CR : single_abs_7d_max_cr (default 0.40)
+           - EQ : single_abs_7d_max_eq (default 0.25)
+    """
+    # Determinar abs_limit a partir dos args
+    abs_limit: float
+    if len(args) == 1 and isinstance(args[0], (int, float)):
+        abs_limit = float(args[0])
+    elif len(args) == 2:
+        is_crypto = bool(args[0])
+        cfg = args[1]
+        if is_crypto:
+            abs_limit = _cfg_val(cfg, "single_abs_7d_max_cr", 0.40)
+        else:
+            abs_limit = _cfg_val(cfg, "single_abs_7d_max_eq", 0.25)
+    else:
+        # fallback defensivo
+        abs_limit = 0.30
+
+    if df is None or df.empty or "close" not in df.columns or len(df) < 8:
+        return False
+    last = pd.to_numeric(df["close"].iloc[-1], errors="coerce")
+    if pd.isna(last) or float(last) <= 0:
+        return False
+    chg7 = _chg7(df)
+    if chg7 is None:
+        return False
+    return abs(chg7) <= abs_limit
+
+
+# =========================
 # EQ / ETF (stooq × yahoo)
 # =========================
 
@@ -109,7 +133,6 @@ def accept_close_eq(
     Retorna (df_aceito ['date','close'], tag).
     """
     eq_delta_max = _cfg_val(cfg, "eq_delta_max", 0.008)              # 0,8%
-    single_abs_7d_max = _cfg_val(cfg, "single_abs_7d_max_eq", 0.25)  # 25%
 
     stq = _prepare(stooq_df)
     yh = _prepare(yahoo_df)
@@ -136,13 +159,13 @@ def accept_close_eq(
 
     # 2) apenas stooq
     if not stq_empty and yh_empty:
-        if sanity_last7_abs_move_ok(stq, single_abs_7d_max):
+        if sanity_last7_abs_move_ok(stq, False, cfg):
             return stq, "stooq_only"
         return pd.DataFrame(columns=["date", "close"]), "stooq_sanity_fail"
 
     # 3) apenas yahoo
     if stq_empty and not yh_empty:
-        if sanity_last7_abs_move_ok(yh, single_abs_7d_max):
+        if sanity_last7_abs_move_ok(yh, False, cfg):
             return yh, "yahoo_only"
         return pd.DataFrame(columns=["date", "close"]), "yahoo_sanity_fail"
 
@@ -165,8 +188,7 @@ def accept_close_cr(
       - Uma fonte: aceitar com sanidade estrita (|Δ7d|<=single_abs_7d_max_cr); tag 'binance_only' ou 'coingecko_only'.
       - Nenhuma: rejeita.
     """
-    cr_delta_max = _cfg_val(cfg, "cr_delta_max", 0.0035)             # 0,35%
-    single_abs_7d_max = _cfg_val(cfg, "single_abs_7d_max_cr", 0.40)  # 40%
+    cr_delta_max = _cfg_val(cfg, "cr_delta_max", 0.0035)  # 0,35%
 
     bn = _prepare(binance_df)
     cg = _prepare(coingecko_df)
@@ -193,13 +215,13 @@ def accept_close_cr(
 
     # 2) apenas binance
     if not bn_empty and cg_empty:
-        if sanity_last7_abs_move_ok(bn, single_abs_7d_max):
+        if sanity_last7_abs_move_ok(bn, True, cfg):
             return bn, "binance_only"
         return pd.DataFrame(columns=["date", "close"]), "binance_sanity_fail"
 
     # 3) apenas coingecko
     if bn_empty and not cg_empty:
-        if sanity_last7_abs_move_ok(cg, single_abs_7d_max):
+        if sanity_last7_abs_move_ok(cg, True, cfg):
             return cg, "coingecko_only"
         return pd.DataFrame(columns=["date", "close"]), "coingecko_sanity_fail"
 
