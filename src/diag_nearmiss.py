@@ -4,62 +4,110 @@ Mostra quem está "quase" disparando N1/N2/N3/N3C e por que não passou.
 
 O script:
 - Lê o feed (mesmo URL do config.yaml).
-- Para cada símbolo (limite padrão 80), busca séries rápidas (8-11 candles) usando os mesmos fetchers (EQ: Yahoo v8; CR: Binance).
+- Para cada símbolo (limite padrão 80), busca séries rápidas (8–11 candles) usando os mesmos
+  fetchers leves (EQ: Yahoo v8; CR: Binance).
 - Calcula chg_7d e chg_10d locais (independentes dos JSONs publicados).
 - Carrega indicadores do pointer atual (RSI14/ATR14/BB20,2) para enriquecer.
 - Avalia regras N1/N2/N3/N3C e sinaliza "near-miss" com razão do bloqueio.
 
 Uso:
   python -m src.diag_nearmiss
-  python -m src.diag_nearmiss 120     # aumentar o limite de símbolos
+  python -m src.diag_nearmiss 200     # aumentar o limite de símbolos
 """
 
 from __future__ import annotations
+
 import sys
 import json
-import io
 import requests
 import pandas as pd
+from pathlib import Path
 from typing import Dict, Tuple, Optional
 
 from src.feed import fetch_feed, extract_watchlists
-from src.utils import load_config
+
+try:
+    import yaml  # PyYAML está no requirements.txt
+except Exception as _e:
+    yaml = None
 
 
-# -----------------------------
-# Helpers de coleta rápida
-# -----------------------------
+# --------------------------------------------------------------------------------------
+# Config: lemos config.yaml diretamente (sem depender de src.utils)
+# --------------------------------------------------------------------------------------
+def _load_config() -> dict:
+    """
+    Lê config.yaml na raiz do repositório. Fornece defaults defensivos
+    se chaves não existirem.
+    """
+    root = Path(__file__).resolve().parents[1]
+    cfg_path = root / "config.yaml"
+    cfg: dict = {}
+    if cfg_path.exists() and yaml is not None:
+        with cfg_path.open("r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+
+    # defaults úteis
+    cfg.setdefault(
+        "pointer_url",
+        "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/pointer.json",
+    )
+    if "feed_url" not in cfg:
+        # fallback defensivo (mesmo do setup que você usou)
+        cfg["feed_url"] = "https://raw.githubusercontent.com/giuksbr/finance_feed/main/feed.json"
+
+    return cfg
+
+
+# --------------------------------------------------------------------------------------
+# Fetchers rápidos (sem depender do pipeline principal)
+# --------------------------------------------------------------------------------------
 UA = {"User-Agent": "Mozilla/5.0 (diag_nearmiss)"}
+
 
 def _series_close_eq(symbol: str) -> pd.Series:
     """
     Coleta rápida para EQ/ETF:
-      - Yahoo v8 /query2 (3mo, 1d) e retorna os 11 últimos closes como Series
+      - Yahoo v8 /query2 (3mo, 1d) e retorna os 11 últimos closes como Series.
+      - Fallback para /query1 se /query2 falhar.
     """
     ticker = symbol.split(":")[1]
-    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=3mo&interval=1d&includePrePost=false"
-    r = requests.get(url, headers=UA, timeout=15)
-    r.raise_for_status()
-    data = r.json()
-    res = data.get("chart", {}).get("result", [])
-    if not res:
-        return pd.Series([], dtype=float)
-    close = res[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
-    ser = pd.Series([c for c in close if c is not None], dtype=float)
-    return ser.tail(11)
+    urls = [
+        f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=3mo&interval=1d&includePrePost=false",
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=3mo&interval=1d&includePrePost=false",
+    ]
+    for url in urls:
+        try:
+            r = requests.get(url, headers=UA, timeout=15)
+            r.raise_for_status()
+            data = r.json()
+            res = data.get("chart", {}).get("result", [])
+            if not res:
+                continue
+            close = res[0].get("indicators", {}).get("quote", [{}])[0].get("close", [])
+            ser = pd.Series([c for c in close if c is not None], dtype=float)
+            if len(ser):
+                return ser.tail(11)
+        except Exception:
+            continue
+    return pd.Series([], dtype=float)
+
 
 def _series_close_cr(symbol: str) -> pd.Series:
     """
     Coleta rápida para CR:
-      - Binance Klines 1d (limit=11) e retorna closes
+      - Binance Klines 1d (limit=11) e retorna closes.
     """
     pair = symbol.split(":")[1]
     url = f"https://api.binance.com/api/v3/klines?symbol={pair}&interval=1d&limit=11"
-    r = requests.get(url, timeout=15)
-    r.raise_for_status()
-    kl = r.json()
-    closes = [float(k[4]) for k in kl]
-    return pd.Series(closes, dtype=float).tail(11)
+    try:
+        r = requests.get(url, timeout=15)
+        r.raise_for_status()
+        kl = r.json()
+        closes = [float(k[4]) for k in kl]
+        return pd.Series(closes, dtype=float).tail(11)
+    except Exception:
+        return pd.Series([], dtype=float)
 
 
 def _chg7_10(ser: pd.Series) -> Tuple[Optional[float], Optional[float]]:
@@ -69,18 +117,17 @@ def _chg7_10(ser: pd.Series) -> Tuple[Optional[float], Optional[float]]:
     chg10 = (ser.iloc[-1] / ser.iloc[-11] - 1.0) * 100.0
     return round(chg7, 2), round(chg10, 2)
 
-# -----------------------------
-# Regras N-níveis (mirror do papel)
-# -----------------------------
+
+# --------------------------------------------------------------------------------------
+# Regras N-níveis (diagnóstico; não altera produção)
+# --------------------------------------------------------------------------------------
 def eval_n_levels(row: dict, asset_type: str) -> Tuple[list, list]:
     """
     Retorna (levels_aprovados, reasons_fail) considerando:
-      N1: queda ≥22%–30% + volume ok (ignoramos volume) -> usamos só queda
-      N2: −12%/7d + (RSI 38–50 OU desvio vs m20 ≥1,5×ATR14) -> usamos RSI OU desvio
-      N3: −8%/7d  + (RSI 40–55 OU Close ≤ BB inferior)
-      N3C: (apenas cr) fallback sem derivativos: preço/RSI/BB/ATR (~N3)
-
-    Como aqui é DIAGNÓSTICO, checamos condições principais e anotamos faltas.
+      N1: queda ≥22%–30%  -> usamos corte ≥22% (sem volume)
+      N2: −12%/7d + (RSI 38–50 OU |close−m20| ≥ 1.5×ATR14)
+      N3: −8%/7d  + (RSI 40–55 OU close ≤ BB inferior)
+      N3C: fallback sem derivativos = mesmas condições do N3 (apenas cr)
     """
     chg7 = row.get("chg_7d_pct")
     rsi = row.get("RSI14")
@@ -92,12 +139,11 @@ def eval_n_levels(row: dict, asset_type: str) -> Tuple[list, list]:
     levels = []
     fails = []
 
-    # N1: checamos só magnitude de queda (22% a 30%). Consideraremos >=22%.
-    if chg7 is not None:
-        if chg7 <= -22.0:
-            levels.append("N1")
-        else:
-            fails.append(f"N1: queda {chg7}% > -22%")
+    # N1
+    if chg7 is not None and chg7 <= -22.0:
+        levels.append("N1")
+    else:
+        fails.append(f"N1: queda {chg7}% > -22%")
 
     # N2
     n2_drop_ok = (chg7 is not None) and (chg7 <= -12.0)
@@ -137,7 +183,7 @@ def eval_n_levels(row: dict, asset_type: str) -> Tuple[list, list]:
             miss.append("close > BB inferior")
         fails.append("N3: " + "; ".join(miss))
 
-    # N3C (apenas cr, fallback sem derivativos = similar a N3)
+    # N3C (apenas cr; fallback = N3)
     if asset_type == "cr":
         if n3_cond_ok:
             levels.append("N3C")
@@ -157,11 +203,11 @@ def _load_pointer_urls(pointer_url: str) -> Dict[str, str]:
 
 
 def main():
-    # Config / Feed
-    cfg = load_config()
-    feed_url = cfg.get("feed_url")
-    pointer_url = cfg.get("pointer_url", "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/pointer.json")
+    cfg = _load_config()
+    feed_url = cfg["feed_url"]
+    pointer_url = cfg["pointer_url"]
 
+    # Feed e listas
     feed = fetch_feed(feed_url)
     wl = extract_watchlists(feed)
     eq_syms = wl.get("eq", [])
@@ -229,11 +275,15 @@ def main():
     # Resumo
     print("== Top quedas 7d e por que não virou N-level (top 20) ==\n")
     cols = ["symbol","asset","chg_7d_pct","RSI14","BB_MA20","BB_LOWER","ATR14","levels_hit","fail_reasons"]
-    print(view[cols].to_string(index=False))
+    if len(view):
+        print(view[cols].to_string(index=False))
+    else:
+        print("(sem linhas para exibir)")
 
     # CSV opcional para revisar em planilha
-    view.to_csv("nearmiss_review.csv", index=False)
-    print("\n[ok] nearmiss_review.csv salvo (top 20).")
+    out_path = Path("nearmiss_review.csv")
+    view.to_csv(out_path, index=False)
+    print(f"\n[ok] {out_path.name} salvo (top 20).")
 
 
 if __name__ == "__main__":
