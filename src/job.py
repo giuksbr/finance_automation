@@ -1,184 +1,326 @@
 from __future__ import annotations
-import os, math, datetime as dt, pytz
+import os, json, yaml, pytz
 import pandas as pd
-import yaml
+from datetime import datetime, timezone
 
-from .feed import load_config, fetch_feed, extract_watchlists
-from .fetch_eq import fetch_stooq, fetch_yahoo
-from .fetch_cr import fetch_binance, fetch_coingecko
-from .indicators import rsi, atr, bollinger_bands
-from .signals import pct_change_n, n_levels_from_features, confidence_from_levels
-from .priceguard import accept_close_eq, accept_close_cr, sanity_last7_abs_move_ok
-from .storage import repo_copy_to_public, repo_build_raw_urls, publish_pointer_local
+from src.feed import fetch_feed, extract_watchlists
+from src.fetch_eq import fetch_stooq, fetch_yahoo
+from src.fetch_cr import fetch_binance, fetch_coingecko
+from src.priceguard import accept_close_eq, accept_close_cr, sanity_last7_abs_move_ok
+from src.indicators import compute_indicators
 
-def now_brt_iso():
-    return dt.datetime.now(pytz.timezone("America/Sao_Paulo")).strftime("%Y-%m-%dT%H:%M:%S%z")
+# ----------------------------------------------------------------------------------------------------------------------
+# Utils / Config
+# ----------------------------------------------------------------------------------------------------------------------
 
-def write_json(path, payload):
-    import json
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+class Thresholds:
+    def __init__(self, cfg: dict):
+        pg = cfg["priceguard"]
+        self.eq_delta_max = float(pg["eq_delta_max"])
+        self.cr_delta_max = float(pg["cr_delta_max"])
+        self.eq_abs_chg7d_max = float(pg["eq_abs_chg7d_max"])
+        self.cr_abs_chg7d_max = float(pg["cr_abs_chg7d_max"])
+
+def _load_cfg() -> dict:
+    with open("config.yaml", "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+def _ensure_dirs():
+    os.makedirs("out", exist_ok=True)
+    os.makedirs("public", exist_ok=True)
+
+def _ts_stamp() -> str:
+    return datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+
+def now_brt_iso() -> str:
+    tz = pytz.timezone("America/Sao_Paulo")
+    now = datetime.now(tz)
+    # formata 2025-10-17T16:39:05-03:00
+    s = now.strftime("%Y-%m-%dT%H:%M:%S%z")
+    return s[:-2] + ":" + s[-2:]
+
+def _write_json(path: str, obj):
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+        json.dump(obj, f, ensure_ascii=False, indent=2)
 
-class PGThresholds:
-    def __init__(self, eq_delta_max, cr_delta_max, eq_abs_chg7d_max, cr_abs_chg7d_max):
-        self.eq_delta_max = eq_delta_max
-        self.cr_delta_max = cr_delta_max
-        self.eq_abs_chg7d_max = eq_abs_chg7d_max
-        self.cr_abs_chg7d_max = cr_abs_chg7d_max
+def _normalize_sources(tag: str | list | None) -> list[str]:
+    if isinstance(tag, list):
+        return [str(x) for x in tag if x]
+    if isinstance(tag, str):
+        parts = [p for p in tag.split("|") if p]
+        return parts if parts else ([tag] if tag else [])
+    return []
 
-def process_series(df, target_days):
-    """Retorna janela curta (7–10) para calcular as quedas."""
-    df = df.sort_values("Date").reset_index(drop=True)
-    window_size = min(max(target_days, min(len(df), target_days+3)), len(df))
-    return df.tail(window_size).reset_index(drop=True), window_size
+def _pct(a: float | None, b: float | None) -> float | None:
+    if a is None or b is None or b == 0:
+        return None
+    return (a / b - 1.0) * 100.0
+
+def _chg7_chg10_from_df(df: pd.DataFrame) -> tuple[float|None, float|None, float|None]:
+    """
+    Retorna (chg7%, chg10%, close) usando a coluna 'close' do DF aceito (ordem temporal).
+    """
+    if df is None or df.empty or "close" not in df.columns:
+        return (None, None, None)
+    closes = pd.Series(df["close"].tolist(), dtype="float64")
+    n = len(closes)
+    close_last = float(closes.iloc[-1])
+    chg7 = chg10 = None
+    if n >= 8:
+        chg7 = _pct(close_last, float(closes.iloc[-8]))
+    if n >= 11:
+        chg10 = _pct(close_last, float(closes.iloc[-11]))
+    return (chg7, chg10, close_last)
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Coleta + PriceGuard + Indicadores + CHGs
+# ----------------------------------------------------------------------------------------------------------------------
+
+def collect_eq(symbols: list[str], days: int, th: Thresholds):
+    """
+    Retorna tupla:
+      ohlcv_eq: {sym: {"window": "7d|Xd", "count": n}}
+      ind_eq  : {sym: {... indic ...}}
+      src_eq  : {sym: ["stooq","yahoo"] | ["stooq_only"] | ["yahoo_only"]}
+      chg_eq  : {sym: {"chg7": float|None, "chg10": float|None, "close": float|None}}
+    """
+    ohlcv_eq, ind_eq, src_eq, chg_eq = {}, {}, {}, {}
+
+    for sym in symbols:
+        stq = fetch_stooq(sym, days)
+        yh  = fetch_yahoo(sym, days)
+        accepted, tag = accept_close_eq(stq, yh, th)
+
+        # fallback sanity se só 1 fonte
+        if accepted is None or accepted.empty:
+            src_df = stq if (stq is not None and not stq.empty) else yh
+            if src_df is not None and not src_df.empty and sanity_last7_abs_move_ok(src_df, False, th):
+                accepted = src_df
+                tag = tag or ("stooq_only" if (stq is not None and not stq.empty) else "yahoo_only")
+            else:
+                continue
+
+        # janela
+        count = len(accepted)
+        win = "7d" if count >= 7 else f"{count}d"
+        ohlcv_eq[sym] = {"window": win, "count": count}
+
+        # fontes
+        src_eq[sym] = _normalize_sources(tag)
+
+        # indicadores
+        try:
+            close = pd.Series(accepted["close"].tolist(), dtype="float64")
+            feats = compute_indicators(close)
+        except Exception:
+            feats = {"RSI14": None, "ATR14": None, "BB_MA20": None, "BB_LOWER": None, "CLOSE": None}
+        ind_eq[sym] = feats
+
+        # chgs
+        ch7, ch10, close_last = _chg7_chg10_from_df(accepted)
+        chg_eq[sym] = {"chg7": ch7, "chg10": ch10, "close": close_last}
+
+    return ohlcv_eq, ind_eq, src_eq, chg_eq
+
+
+def collect_cr(symbols: list[str], days: int, th: Thresholds, cg_map: dict):
+    """
+    Retorna tupla:
+      ohlcv_cr: {sym: {"window": "7d|Xd", "count": n}}
+      ind_cr  : {sym: {...}}
+      src_cr  : {sym: ["binance","coingecko"] | ["binance_only"] | ["coingecko_only"]}
+      chg_cr  : {sym: {"chg7": float|None, "chg10": float|None, "close": float|None}}
+    """
+    ohlcv_cr, ind_cr, src_cr, chg_cr = {}, {}, {}, {}
+
+    for sym in symbols:
+        bn = fetch_binance(sym, days)
+        cg = fetch_coingecko(sym, cg_map, days)
+        accepted, tag = accept_close_cr(bn, cg, th)
+
+        # fallback sanity se só 1 fonte
+        if accepted is None or accepted.empty:
+            src_df = bn if (bn is not None and not bn.empty) else cg
+            if src_df is not None and not src_df.empty and sanity_last7_abs_move_ok(src_df, True, th):
+                accepted = src_df
+                tag = tag or ("binance_only" if (bn is not None and not bn.empty) else "coingecko_only")
+            else:
+                continue
+
+        # janela
+        count = len(accepted)
+        win = "7d" if count >= 7 else f"{count}d"
+        ohlcv_cr[sym] = {"window": win, "count": count}
+
+        # fontes
+        src_cr[sym] = _normalize_sources(tag)
+
+        # indicadores
+        try:
+            close = pd.Series(accepted["close"].tolist(), dtype="float64")
+            feats = compute_indicators(close)
+        except Exception:
+            feats = {"RSI14": None, "ATR14": None, "BB_MA20": None, "BB_LOWER": None, "CLOSE": None}
+        ind_cr[sym] = feats
+
+        # chgs
+        ch7, ch10, close_last = _chg7_chg10_from_df(accepted)
+        chg_cr[sym] = {"chg7": ch7, "chg10": ch10, "close": close_last}
+
+    return ohlcv_cr, ind_cr, src_cr, chg_cr
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Sinais N-níveis (usa chg_7d/10 + indicadores)
+# ----------------------------------------------------------------------------------------------------------------------
+
+def build_signals(ohl_eq, ind_eq, src_eq, chg_eq,
+                  ohl_cr, ind_cr, src_cr, chg_cr) -> list[dict]:
+    signals: list[dict] = []
+
+    # thresholds mínimos (triagem)
+    N1_MIN = -22.0
+    N2_MIN = -12.0
+    N3_MIN = -8.0
+
+    def mk(sym: str, feats: dict, ch: dict, srcs: list[str], is_cr: bool):
+        if feats is None or ch is None:
+            return None
+        # indicadores completos
+        need = ("RSI14","ATR14","BB_MA20","BB_LOWER")
+        if any(feats.get(k) is None for k in need):
+            return None
+        # dupla-fonte obrigatória para CR
+        if is_cr and len(srcs) < 2:
+            return None
+
+        chg7, chg10, close = ch.get("chg7"), ch.get("chg10"), ch.get("close")
+        if chg7 is None:
+            return None
+
+        rsi, atr, bbm, bbl = feats["RSI14"], feats["ATR14"], feats["BB_MA20"], feats["BB_LOWER"]
+        levels = []
+
+        # N1
+        if chg7 <= N1_MIN:
+            levels.append("N1")
+        # N2
+        if chg7 <= N2_MIN and ((rsi is not None and 38 <= rsi <= 50) or (atr is not None and bbm is not None and close is not None and abs(close - bbm) >= 1.5*atr)):
+            levels.append("N2")
+        # N3
+        if chg7 <= N3_MIN and ((rsi is not None and 40 <= rsi <= 55) or (close is not None and bbl is not None and close <= bbl)):
+            levels.append("N3")
+        # N3C para cripto (fallback sem derivativos)
+        if is_cr and chg7 <= N3_MIN:
+            levels.append("N3C")
+
+        if not levels:
+            return None
+
+        return {
+            "symbol_canonical": sym,
+            "window_used": "7d",
+            "features": {
+                "chg_7d_pct": round(chg7, 2) if chg7 is not None else None,
+                "chg_10d_pct": round(chg10, 2) if chg10 is not None else None,
+                "rsi14": round(rsi, 2) if rsi is not None else None,
+                "atr14": round(atr, 6) if atr is not None else None,
+                "bb_ma20": round(bbm, 6) if bbm is not None else None,
+                "bb_lower": round(bbl, 6) if bbl is not None else None,
+                "close": round(close, 6) if close is not None else None,
+            },
+            "derivatives": {},
+            "levels": levels,
+            "confidence": "low",
+            "sources": srcs
+        }
+
+    # EQ (não exigimos dupla-fonte para EQ aqui; consumidora pode filtrar depois se quiser)
+    for sym in sorted(ind_eq.keys()):
+        item = mk(sym, ind_eq[sym], chg_eq.get(sym, {}), src_eq.get(sym, []), is_cr=False)
+        if item:
+            signals.append(item)
+
+    # CR (dupla-fonte obrigatória na criação do sinal)
+    for sym in sorted(ind_cr.keys()):
+        item = mk(sym, ind_cr[sym], chg_cr.get(sym, {}), src_cr.get(sym, []), is_cr=True)
+        if item:
+            signals.append(item)
+
+    return signals
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Publicação
+# ----------------------------------------------------------------------------------------------------------------------
+
+def publish(ohl: dict, ind: dict, sigs: list[dict], base_url_raw: str):
+    _ensure_dirs()
+    gen_brt = now_brt_iso()
+
+    ohl_json = {
+        "generated_at_brt": gen_brt,
+        "eq": ohl.get("eq", {}),
+        "cr": ohl.get("cr", {}),
+        "errors": ohl.get("errors", []),
+    }
+    ind_json = {
+        "generated_at_brt": gen_brt,
+        "eq": ind.get("eq", {}),
+        "cr": ind.get("cr", {}),
+        "errors": ind.get("errors", []),
+    }
+
+    ts = _ts_stamp()
+    out_ohl = f"public/ohlcv_cache_{ts}.json"
+    out_ind = f"public/indicators_{ts}.json"
+    out_sig = f"public/n_signals_{ts}.json"
+
+    _write_json(out_ohl, ohl_json)
+    _write_json(out_ind, ind_json)
+    _write_json(out_sig, sigs)
+
+    pointer = {
+        "ohlcv_url": f"{base_url_raw.rstrip('/')}/public/ohlcv_cache_{ts}.json",
+        "indicators_url": f"{base_url_raw.rstrip('/')}/public/indicators_{ts}.json",
+        "signals_url": f"{base_url_raw.rstrip('/')}/public/n_signals_{ts}.json",
+        "expires_at_utc": (datetime.utcnow() + pd.Timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    _write_json("public/pointer.json", pointer)
+    print("Publicação concluída em public")
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------------------------------------------------------
 
 def main():
-    cfg = load_config()
-    out_dir = cfg.get("out_dir", "out")
-    os.makedirs(out_dir, exist_ok=True)
-    thresholds = PGThresholds(**cfg["priceguard"])
+    cfg = _load_cfg()
+    th  = Thresholds(cfg)
+    days = int(cfg.get("window_fallback_days", 30))
 
     feed = fetch_feed(cfg["feed_url"])
-    wl = extract_watchlists(feed)
+    wl   = extract_watchlists(feed)
+    eq_syms = wl.get("eq", []) or []
+    cr_syms = wl.get("cr", []) or []
 
-    import json
-    with open("coingecko_map.json", "r", encoding="utf-8") as f:
-        cg_map = json.load(f)
+    # mapa CoinGecko
+    try:
+        with open("coingecko_map.json","r",encoding="utf-8") as f:
+            cg_map = json.load(f)
+    except Exception:
+        cg_map = {}
 
-    ohlcv_payload = {"generated_at_brt": now_brt_iso(), "eq": {}, "cr": {}, "errors": []}
-    ind_payload   = {"generated_at_brt": now_brt_iso(), "eq": {}, "cr": {}, "errors": []}
-    sig_list, errors = [], []
+    # coleta
+    ohl_eq, ind_eq, src_eq, chg_eq = collect_eq(eq_syms, days, th)
+    ohl_cr, ind_cr, src_cr, chg_cr = collect_cr(cr_syms, days, th, cg_map)
 
-    def compute_indicators_and_signal(asset_type: str, sym_can: str, df_win: pd.DataFrame, df_full: pd.DataFrame, used_tag: str):
-        """Indicadores com df_full (~30d). Quedas com df_win (7–10d)."""
-        close_full = df_full["close"]
-        rsi14 = rsi(close_full, 14).iloc[-1] if len(df_full) >= 14 else None
-        atr14 = atr(df_full, 14).iloc[-1] if len(df_full) >= 14 else None
-        ma20, bb_up, bb_lo = bollinger_bands(close_full, 20, 2.0)
-        bb_ma20 = ma20.iloc[-1] if len(close_full) >= 20 else None
-        bb_lower = bb_lo.iloc[-1] if len(close_full) >= 20 else None
+    # montar objetos de publicação
+    ohl = {"eq": ohl_eq, "cr": ohl_cr, "errors": []}
+    ind = {"eq": ind_eq, "cr": ind_cr, "errors": []}
 
-        chg7  = pct_change_n(df_win, 7)
-        chg10 = pct_change_n(df_win, 10)
-        last_close = float(df_win["close"].iloc[-1])
+    # sinais
+    signals = build_signals(ohl_eq, ind_eq, src_eq, chg_eq,
+                            ohl_cr, ind_cr, src_cr, chg_cr)
 
-        bucket = ind_payload["eq"] if asset_type=="eq" else ind_payload["cr"]
-        def _safe(v, nd=2):
-            if v is None: return None
-            if isinstance(v, float) and math.isnan(v): return None
-            return round(float(v), nd)
-        bucket[sym_can] = {
-            "RSI14":   _safe(rsi14, 2),
-            "ATR14":   _safe(atr14, 6),
-            "BB_MA20": _safe(bb_ma20, 6),
-            "BB_LOWER":_safe(bb_lower, 6),
-        }
-
-        lvls = n_levels_from_features(
-            asset_type, chg7, chg10,
-            None if rsi14 is None else float(rsi14),
-            None if atr14 is None else float(atr14),
-            None if bb_lower is None else float(bb_lower),
-            None if bb_ma20 is None else float(bb_ma20),
-            last_close
-        )
-        if lvls:
-            srcs = used_tag.split("|")
-            sig = {
-                "symbol_canonical": sym_can,
-                "window_used": ("7d" if chg7 is not None else ("10d" if chg10 is not None else used_tag)),
-                "features": {
-                    "chg_7d_pct":  None if chg7  is None else round(float(chg7 ), 2),
-                    "chg_10d_pct": None if chg10 is None else round(float(chg10), 2),
-                    "rsi14":       None if rsi14 is None else round(float(rsi14), 2),
-                    "atr14":       None if atr14 is None else round(float(atr14), 6),
-                    "bb_lower":    None if bb_lower is None else round(float(bb_lower), 6),
-                    "bb_ma20":     None if bb_ma20 is None else round(float(bb_ma20), 6),
-                    "close":       round(last_close, 6),
-                },
-                "derivatives": {},
-                "levels": lvls,
-                "confidence": "low",
-                "sources": srcs,
-            }
-            sig["confidence"] = confidence_from_levels(sig["levels"], sig["sources"])
-            return sig
-        return None
-
-    # ========= EQ/ETF =========
-    for sym in wl.get("eq", []):
-        try:
-            stq = fetch_stooq(sym, cfg.get("window_fallback_days", 30))
-            yh  = fetch_yahoo(sym,  cfg.get("window_fallback_days", 30))
-            accepted, src_tag = accept_close_eq(stq, yh, thresholds)
-            if accepted is None:
-                cand = stq if stq is not None else yh
-                if cand is not None and sanity_last7_abs_move_ok(cand, False, thresholds):
-                    accepted, src_tag = cand, (src_tag + "|sanity_ok") if isinstance(src_tag, str) else "sanity_ok"
-                else:
-                    errors.append(f"PRICEGUARD_FAIL:{sym}")
-                    continue
-            df_full = accepted.sort_values("Date").reset_index(drop=True)
-            df_win, used_n = process_series(df_full, cfg.get("window_days", 7))
-            ohlcv_payload["eq"][sym] = {"window": f"{used_n}d", "count": int(len(df_win))}
-            sig = compute_indicators_and_signal("eq", sym, df_win, df_full, src_tag)
-            if sig: sig_list.append(sig)
-        except Exception:
-            errors.append(f"HIST_FETCH_FAIL:{sym}")
-
-    # ========= CRYPTO =========
-    for sym in wl.get("cr", []):
-        try:
-            bn = fetch_binance(sym,   cfg.get("window_fallback_days", 30))
-            cg = fetch_coingecko(sym, cg_map, cfg.get("window_fallback_days", 30))
-            accepted, src_tag = accept_close_cr(bn, cg, thresholds)
-            if accepted is None:
-                cand = bn if bn is not None else cg
-                if cand is not None and sanity_last7_abs_move_ok(cand, True, thresholds):
-                    accepted, src_tag = cand, (src_tag + "|sanity_ok") if isinstance(src_tag, str) else "sanity_ok"
-                else:
-                    errors.append(f"PRICEGUARD_FAIL:{sym}")
-                    continue
-            df_full = accepted.sort_values("Date").reset_index(drop=True)
-            df_win, used_n = process_series(df_full, cfg.get("window_days", 7))
-            ohlcv_payload["cr"][sym] = {"window": f"{used_n}d", "count": int(len(df_win))}
-            sig = compute_indicators_and_signal("cr", sym, df_win, df_full, src_tag)
-            if sig: sig_list.append(sig)
-        except Exception:
-            errors.append(f"HIST_FETCH_FAIL:{sym}")
-
-    # finalize e publicar
-    ohlcv_payload["errors"] = errors
-    write_json(os.path.join(out_dir, "ohlcv_cache.json"), ohlcv_payload)
-    write_json(os.path.join(out_dir, "indicators.json"), ind_payload)
-    write_json(os.path.join(out_dir, "n_signals.json"), sig_list)
-
-    st = cfg["storage"]
-    if st.get("backend") == "repo":
-        public_dir = st.get("public_dir", "public")
-        raw_base   = st.get("raw_base_url", "https://raw.githubusercontent.com/<owner>/<repo>/main/")
-        ts = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-        files_map = {
-            "ohlcv_cache.json": f"ohlcv_cache_{ts}.json",
-            "indicators.json":  f"indicators_{ts}.json",
-            "n_signals.json":   f"n_signals_{ts}.json",
-        }
-        repo_copy_to_public(public_dir, out_dir, files_map)
-        urls = repo_build_raw_urls(raw_base, public_dir, list(files_map.values()))
-        pointer_local = os.path.join(out_dir, "pointer.json")
-        exp = (dt.datetime.utcnow() + dt.timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        publish_pointer_local(
-            pointer_local,
-            urls[files_map["ohlcv_cache.json"]],
-            urls[files_map["indicators.json"]],
-            urls[files_map["n_signals.json"]],
-            exp
-        )
-        import shutil; shutil.copyfile(pointer_local, os.path.join(public_dir, "pointer.json"))
-        print("Publicação concluída em", public_dir)
-    else:
-        print("storage.backend!=repo → saída somente em 'out/'")
+    publish(ohl, ind, signals, cfg["storage"]["raw_base_url"])
 
 if __name__ == "__main__":
     main()
