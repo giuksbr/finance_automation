@@ -1,0 +1,232 @@
+{
+  "generated_at_brt": "2025-10-20T14:20:28-03:00",
+  "eq": {
+    "NYSEARCA:VUG": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IVW": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IUSG": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:SGOV": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:QQQM": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:SOXX": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:NVDA": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:AVGO": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:TSM": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:PLTR": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:VST": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:ARGT": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:SPY": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:VOO": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:VTI": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:QQQ": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:XLK": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:SMH": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IJR": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IWF": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IWD": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:XLV": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:XLF": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:XLE": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:MSFT": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:AAPL": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:GOOGL": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:AMZN": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:META": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:AMD": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:LRCX": {
+      "window": "7d",
+      "count": 65
+    },
+    "NASDAQ:ASML": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:COST": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:UNH": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:JPM": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:BRK.B": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:NVO": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSE:LLY": {
+      "window": "7d",
+      "count": 65
+    }
+  },
+  "cr": {
+    "BINANCE:BTCUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:ETHUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:SOLUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:LINKUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:XRPUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:FETUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:ADAUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:DOTUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:ATOMUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:ARBUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:OPUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:AAVEUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:UNIUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:LTCUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:TRXUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:TONUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:NEARUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:INJUSDT": {
+      "window": "7d",
+      "count": 30
+    }
+  },
+  "errors": []
+}
