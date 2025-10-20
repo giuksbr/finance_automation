@@ -1,0 +1,1230 @@
+{
+  "schema_version": "1.0",
+  "generated_at_brt": "2025-10-20T10:59:11-03:00",
+  "universe_counts": {
+    "avenue": 38,
+    "binance": 18
+  },
+  "sources": {
+    "eq_primary": "stooq",
+    "eq_backup": "yahoo",
+    "eq_sanity": "nasdaq",
+    "cr_primary": "binance",
+    "cr_backup": "coingecko",
+    "cr_sanity": "kraken"
+  },
+  "window_policy": {
+    "target_days": 7,
+    "fallback_days": 30
+  },
+  "priceguard": {
+    "eq_tolerance_pct": 0.8,
+    "cr_tolerance_pct": 0.35,
+    "mode": "dual_or_single_with_sanity"
+  },
+  "overlays": {
+    "vix_gt_25": false,
+    "dxy_up_3d_0p8": false,
+    "usdt_depeg": false
+  },
+  "list_policy": {
+    "watchlists": [
+      "whitelist",
+      "candidate_pool"
+    ],
+    "coverage": {
+      "whitelist": "100%",
+      "candidate_pool": "rotating"
+    }
+  },
+  "signals": [],
+  "errors": [],
+  "telemetry": {
+    "run_id": "2025-10-20T14:25:01Z#export_v1",
+    "eq_status": "OK",
+    "cr_status": "OK",
+    "fallback_used": {
+      "eq": [],
+      "cr": []
+    }
+  },
+  "universe": [
+    {
+      "symbol_canonical": "NYSEARCA:VUG",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 482.68499755859375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 55.9,
+      "atr14": 3.706127,
+      "bb_ma20": 479.548799,
+      "bb_lower": 471.236967,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IVW",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 121.12999725341797,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 55.47,
+      "atr14": 0.868209,
+      "bb_ma20": 120.552001,
+      "bb_lower": 118.710018,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IUSG",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 165.18499755859375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 55.61,
+      "atr14": 1.175791,
+      "bb_ma20": 164.35525,
+      "bb_lower": 161.860851,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:SGOV",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 100.58000183105469,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 97.07,
+      "atr14": 0.016846,
+      "bb_ma20": 100.431928,
+      "bb_lower": 100.254502,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:QQQM",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 250.80999755859375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 59.31,
+      "atr14": 1.917733,
+      "bb_ma20": 247.703501,
+      "bb_lower": 243.114049,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:SOXX",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 293.3699951171875,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 63.53,
+      "atr14": 4.803897,
+      "bb_ma20": 279.988499,
+      "bb_lower": 262.705868,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:NVDA",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 182.72000122070312,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 50.1,
+      "atr14": 2.87895,
+      "bb_ma20": 183.740501,
+      "bb_lower": 175.091394,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:AVGO",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 354.6300048828125,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 57.29,
+      "atr14": 7.13645,
+      "bb_ma20": 340.697499,
+      "bb_lower": 322.890651,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:TSM",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 301.2650146484375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 59.22,
+      "atr14": 6.929555,
+      "bb_ma20": 290.797249,
+      "bb_lower": 269.719959,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:PLTR",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 178.14999389648438,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 51.36,
+      "atr14": 2.890611,
+      "bb_ma20": 180.1155,
+      "bb_lower": 173.345156,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:VST",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 203.28,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 49.71,
+      "atr14": 4.780376,
+      "bb_ma20": 203.4765,
+      "bb_lower": 194.730001,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:ARGT",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 72.6500015258789,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 50.29,
+      "atr14": 1.440585,
+      "bb_ma20": 71.552,
+      "bb_lower": 66.806248,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:SPY",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 668.7550048828125,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 57.12,
+      "atr14": 3.831118,
+      "bb_ma20": 665.158246,
+      "bb_lower": 655.362055,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:VOO",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 615.344970703125,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 57.65,
+      "atr14": 3.526086,
+      "bb_ma20": 611.536658,
+      "bb_lower": 602.50496,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:VTI",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 329.9501037597656,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 57.32,
+      "atr14": 1.973537,
+      "bb_ma20": 327.913803,
+      "bb_lower": 323.092135,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:QQQ",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 609.2000122070312,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 59.21,
+      "atr14": 4.676731,
+      "bb_ma20": 601.713498,
+      "bb_lower": 590.56415,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:XLK",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 287.3999938964844,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 59.16,
+      "atr14": 2.666854,
+      "bb_ma20": 283.685001,
+      "bb_lower": 276.203602,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:SMH",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 348.1400146484375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 63.87,
+      "atr14": 5.083962,
+      "bb_ma20": 334.483498,
+      "bb_lower": 315.814513,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IJR",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 119.18000030517578,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 54.3,
+      "atr14": 1.154331,
+      "bb_ma20": 118.402499,
+      "bb_lower": 115.838463,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IWF",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 471.0069885253906,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 56.12,
+      "atr14": 3.519097,
+      "bb_ma20": 468.212347,
+      "bb_lower": 460.503335,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IWD",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 204.38999938964844,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 56.89,
+      "atr14": 1.124165,
+      "bb_ma20": 203.215498,
+      "bb_lower": 200.414439,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:XLV",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 143.97999572753906,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 65.72,
+      "atr14": 0.859399,
+      "bb_ma20": 141.2545,
+      "bb_lower": 134.420197,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:XLF",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 52.40999984741211,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 43.45,
+      "atr14": 0.386531,
+      "bb_ma20": 53.2555,
+      "bb_lower": 51.961568,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSEARCA:XLE",
+      "asset_type": "eq",
+      "venue": "NYSEARCA",
+      "window_used": "7d",
+      "price_now_close": 86.55500030517578,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 44.95,
+      "atr14": 0.75195,
+      "bb_ma20": 88.33325,
+      "bb_lower": 84.464597,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:MSFT",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 513.5700073242188,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 48.54,
+      "atr14": 3.220298,
+      "bb_ma20": 515.689497,
+      "bb_lower": 504.604989,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:AAPL",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 258.87060546875,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 63.76,
+      "atr14": 2.910416,
+      "bb_ma20": 253.632529,
+      "bb_lower": 245.686355,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:GOOGL",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 255.88999938964844,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 67.32,
+      "atr14": 2.786359,
+      "bb_ma20": 246.720499,
+      "bb_lower": 238.029563,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:AMZN",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 214.42999267578125,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 39.93,
+      "atr14": 2.649894,
+      "bb_ma20": 219.456001,
+      "bb_lower": 212.294155,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:META",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 728.3800048828125,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 48.83,
+      "atr14": 9.195584,
+      "bb_ma20": 726.305502,
+      "bb_lower": 694.127241,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:AMD",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 234.9600067138672,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 71.84,
+      "atr14": 6.438795,
+      "bb_ma20": 196.9175,
+      "bb_lower": 132.51611,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:LRCX",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 145.8625946044922,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 63.34,
+      "atr14": 3.430413,
+      "bb_ma20": 138.604128,
+      "bb_lower": 125.266456,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NASDAQ:ASML",
+      "asset_type": "eq",
+      "venue": "NASDAQ",
+      "window_used": "7d",
+      "price_now_close": 1039.1500244140625,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 68.01,
+      "atr14": 17.296547,
+      "bb_ma20": 991.184006,
+      "bb_lower": 925.259577,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:COST",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 937.3040161132812,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 49.79,
+      "atr14": 9.045301,
+      "bb_ma20": 929.493704,
+      "bb_lower": 902.809543,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:UNH",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 360.89300537109375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 61.7,
+      "atr14": 4.118787,
+      "bb_ma20": 355.514149,
+      "bb_lower": 340.551009,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:JPM",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 298.989990234375,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 43.19,
+      "atr14": 2.89157,
+      "bb_ma20": 306.980498,
+      "bb_lower": 296.633858,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:BRK.B",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 493.19500732421875,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 49.06,
+      "atr14": 3.119235,
+      "bb_ma20": 496.38925,
+      "bb_lower": 488.709045,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:NVO",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 55.625,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 44.96,
+      "atr14": 0.97073,
+      "bb_ma20": 57.465751,
+      "bb_lower": 54.059877,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "NYSE:LLY",
+      "asset_type": "eq",
+      "venue": "NYSE",
+      "window_used": "7d",
+      "price_now_close": 803.0455932617188,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 53.28,
+      "atr14": 11.643556,
+      "bb_ma20": 800.471274,
+      "bb_lower": 710.567895,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:BTCUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 111175.36,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 38.84,
+      "atr14": 2212.560206,
+      "bb_ma20": 115857.6885,
+      "bb_lower": 103724.463676,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:ETHUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 4039.16,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 36.78,
+      "atr14": 141.935394,
+      "bb_ma20": 4204.4775,
+      "bb_lower": 3637.325278,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:SOLUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 192.52,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 34.15,
+      "atr14": 9.055048,
+      "bb_ma20": 207.554,
+      "bb_lower": 168.50677,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:LINKUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 19.03,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 39.04,
+      "atr14": 0.984043,
+      "bb_ma20": 19.9665,
+      "bb_lower": 15.250471,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:XRPUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 2.4622,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 33.8,
+      "atr14": 0.084019,
+      "bb_ma20": 2.656095,
+      "bb_lower": 2.110265,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:FETUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 0.293,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 20.4,
+      "atr14": 0.024717,
+      "bb_ma20": 0.430075,
+      "bb_lower": 0.16154,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:ADAUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 0.6684,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 31.1,
+      "atr14": 0.032889,
+      "bb_ma20": 0.74483,
+      "bb_lower": 0.554842,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:DOTUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 3.115,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 31.59,
+      "atr14": 0.162355,
+      "bb_ma20": 3.5893,
+      "bb_lower": 2.439575,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:ATOMUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 3.316,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 32.27,
+      "atr14": 0.161321,
+      "bb_ma20": 3.6865,
+      "bb_lower": 2.75453,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:ARBUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 0.3269,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 28.7,
+      "atr14": 0.020964,
+      "bb_ma20": 0.37348,
+      "bb_lower": 0.25387,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:OPUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 0.4557,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 23.31,
+      "atr14": 0.033705,
+      "bb_ma20": 0.58021,
+      "bb_lower": 0.308648,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:AAVEUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 231.19,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 32.79,
+      "atr14": 13.289544,
+      "bb_ma20": 256.7175,
+      "bb_lower": 198.799773,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:UNIUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 6.462,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 30.17,
+      "atr14": 0.379741,
+      "bb_ma20": 7.12915,
+      "bb_lower": 5.30336,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:LTCUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 95.34,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 29.9,
+      "atr14": 3.970006,
+      "bb_ma20": 105.902,
+      "bb_lower": 80.868913,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:TRXUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 0.3228,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 42.27,
+      "atr14": 0.004492,
+      "bb_ma20": 0.328405,
+      "bb_lower": 0.30418,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:TONUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 2.259,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 27.06,
+      "atr14": 0.105105,
+      "bb_ma20": 2.47255,
+      "bb_lower": 1.859021,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:NEARUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 2.325,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 32.54,
+      "atr14": 0.116432,
+      "bb_ma20": 2.6116,
+      "bb_lower": 1.953627,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    },
+    {
+      "symbol_canonical": "BINANCE:INJUSDT",
+      "asset_type": "crypto",
+      "venue": "BINANCE",
+      "window_used": "7d",
+      "price_now_close": 8.96,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "rsi14": 27.33,
+      "atr14": 0.582003,
+      "bb_ma20": 10.6235,
+      "bb_lower": 6.737303,
+      "bb_upper": null,
+      "levels": [],
+      "confidence": "low",
+      "validation": {
+        "priceguard": "UNKNOWN",
+        "window_status": "TARGET",
+        "sources_used": []
+      }
+    }
+  ],
+  "_content_sha256": "27638744c21b7af9ab06d1e333e9155003d13f972d1a4d63836e7afe65dd2ced"
+}
