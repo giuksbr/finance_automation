@@ -333,3 +333,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+try:
+    DEFAULT_FEED_URL
+except NameError:  # define if missing
+    import os as _os
+    DEFAULT_FEED_URL = _os.environ.get(
+        "FEED_URL",
+        "https://raw.githubusercontent.com/giuksbr/finance_feed/main/feed.json"
+    )
+# -------------------------------------------------------------------------
