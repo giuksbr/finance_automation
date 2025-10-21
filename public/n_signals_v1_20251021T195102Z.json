@@ -1059,10 +1059,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -7.9e-06,
-        "oi_chg_3d_pct": 12.348799
       }
     },
     {
@@ -1089,10 +1085,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 9.291e-05,
-        "oi_chg_3d_pct": 2.189643
       }
     },
     {
@@ -1119,10 +1111,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -0.00012317,
-        "oi_chg_3d_pct": -9.862909
       }
     },
     {
@@ -1149,10 +1137,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 0.00010046,
-        "oi_chg_3d_pct": 10.190126
       }
     },
     {
@@ -1179,10 +1163,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -2.565e-05,
-        "oi_chg_3d_pct": 14.777112
       }
     },
     {
@@ -1209,10 +1189,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -4.784e-05,
-        "oi_chg_3d_pct": 11.156466
       }
     },
     {
@@ -1239,10 +1215,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 7.561e-05,
-        "oi_chg_3d_pct": -4.114411
       }
     },
     {
@@ -1269,10 +1241,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 5.606e-05,
-        "oi_chg_3d_pct": -7.96339
       }
     },
     {
@@ -1299,10 +1267,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 0.00010836,
-        "oi_chg_3d_pct": 1.686662
       }
     },
     {
@@ -1329,10 +1293,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 3.79e-06,
-        "oi_chg_3d_pct": -10.596961
       }
     },
     {
@@ -1359,10 +1319,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 0.00010549,
-        "oi_chg_3d_pct": 6.464065
       }
     },
     {
@@ -1389,10 +1345,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 6.355e-05,
-        "oi_chg_3d_pct": 12.892931
       }
     },
     {
@@ -1419,10 +1371,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -0.00010347,
-        "oi_chg_3d_pct": -11.547346
       }
     },
     {
@@ -1449,10 +1397,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 3.512e-05,
-        "oi_chg_3d_pct": 9.209493
       }
     },
     {
@@ -1479,10 +1423,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 0.0001231,
-        "oi_chg_3d_pct": 10.205223
       }
     },
     {
@@ -1509,10 +1449,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -8.455e-05,
-        "oi_chg_3d_pct": 14.672105
       }
     },
     {
@@ -1539,10 +1475,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": 7.692e-05,
-        "oi_chg_3d_pct": -4.169573
       }
     },
     {
@@ -1569,10 +1501,6 @@
           "binance",
           "coingecko"
         ]
-      },
-      "derivatives": {
-        "funding": -8.31e-05,
-        "oi_chg_3d_pct": 9.697856
       }
     }
   ]

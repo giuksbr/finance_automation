@@ -1,6 +1,6 @@
 {
-  "version":"1.0",
-  "generated_at_brt":"2025-10-21T16:24:29-03:00",
-  "signals_url":"https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/n_signals_v1_latest.json",
-  "expires_at_utc":"2025-10-21T19:33:52Z"
+  "version": "1.0",
+  "generated_at_brt": "2025-10-21T16:49:28-03:00",
+  "signals_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/n_signals_v1_latest.json",
+  "expires_at_utc": "2025-10-21T19:51:02Z"
 }
