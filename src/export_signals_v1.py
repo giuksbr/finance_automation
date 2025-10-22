@@ -1,47 +1,91 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Exportador n_signals_v1:
-- Lê public/pointer.json (ohlcv_url, indicators_url, signals_url)
-- Consolida em n_signals_v1_* e/ou n_signals_v1_latest.json
-- Acrescenta METADADOS pedidas:
-  - Top-level: run_id, commit_sha, content_sha256, clock{market_day_brt, is_trading_day_us, is_trading_day_crypto}
-  - Por item (signals/universe): price_now_close_at_utc, pct_chg_10d, pct_chg_30d, atr14_pct, liq{...} (se disponível)
-- Compatível com: --with-universe --write-latest --update-pointer
-"""
-from __future__ import annotations
 
-import os
+"""
+export_signals_v1.py
+--------------------
+Gera `public/n_signals_v1_<TS>Z.json` e opcionalmente:
+- `public/n_signals_v1_latest.json`
+- atualiza `public/pointer_signals_v1.json`
+
+Pontos chave deste arquivo:
+- Lê o pointer principal: public/pointer.json (com URLs de OHLCV/INDIC/SIGNALS)
+- Normaliza o OHLCV para garantir dicts em ohl["eq"] e ohl["cr"]
+- Lê séries em dois formatos: (A) colunar {"c":[...], "t":[...]} e (B) lista de objetos
+- Extrai: price_now_close, price_now_close_at_utc, pct_chg_7d/10d/30d
+- Concilia indicadores (RSI, ATR, BB*) com os preços/variações
+- Mantém/propaga derivatives já existentes do último run (quando possível)
+- Escreve run_id, clock e demais campos sugeridos
+
+CLI:
+  python -m src.export_signals_v1 --with-universe --write-latest --update-pointer
+"""
+
 import argparse
-import datetime as dt
-import hashlib
 import json
 import os
-import re
-import subprocess
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, List
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
-try:
-    import requests
-except Exception:
-    requests = None  # fallback arquivo local
+import requests
 
-# ----------------------------
-# Helpers de I/O
-# ----------------------------
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-PUBLIC_DIR = os.path.join(ROOT, "public")
-POINTER_PATH = os.path.join(PUBLIC_DIR, "pointer.json")
-POINTER_SIG_V1_PATH = os.path.join(PUBLIC_DIR, "pointer_signals_v1.json")
+RAW_BASE = "https://raw.githubusercontent.com/giuksbr/finance_automation/main"
+POINTER_PATH = "public/pointer.json"
+OUT_DIR = "public"
+SCHEMA_VERSION = "1.0"
 
-RAW_BASE_DEFAULT = "https://raw.githubusercontent.com/giuksbr/finance_automation/main"
+# ---------- utils de tempo ----------
 
+BRT = ZoneInfo("America/Sao_Paulo")
+
+
+def now_utc_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def now_brt_iso() -> str:
+    return datetime.now(BRT).replace(microsecond=0).isoformat()
+
+
+def brt_date_today() -> str:
+    return datetime.now(BRT).date().isoformat()
+
+
+def to_iso_utc(ts: Any) -> Optional[str]:
+    """Converte número epoch (s|ms), string ISO (com/sem Z), ou datetime p/ ISO-UTC."""
+    try:
+        if ts is None:
+            return None
+        if isinstance(ts, (int, float)):
+            # heurística: epoch ms se muito grande
+            if ts > 10**12:
+                ts = ts / 1000.0
+            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+            return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        if isinstance(ts, str):
+            s = ts.strip()
+            if s.endswith("Z"):
+                s = s.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            else:
+                dt = dt.astimezone(timezone.utc)
+            return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        if hasattr(ts, "tzinfo"):
+            dt = ts.astimezone(timezone.utc)
+            return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    except Exception:
+        return None
+    return None
+
+
+# ---------- IO helpers ----------
 
 def _read_text(path_or_url: str) -> str:
-    if re.match(r"^https?://", path_or_url):
-        if requests is None:
-            raise RuntimeError("requests não disponível para leitura HTTP")
+    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
         r = requests.get(path_or_url, timeout=30)
         r.raise_for_status()
         return r.text
@@ -53,292 +97,344 @@ def _read_json(path_or_url: str) -> Any:
     return json.loads(_read_text(path_or_url))
 
 
-def _write_json(path: str, payload: Any) -> None:
+def _write_json(path: str, obj: Any) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"), sort_keys=False)
+        json.dump(obj, f, ensure_ascii=False, indent=2)
 
 
-def _git_sha_short() -> Optional[str]:
-    try:
-        out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, timeout=5)
-        return out.decode().strip()
-    except Exception:
-        return None
+# ---------- normalização OHLCV ----------
+
+def _normalize_sections(ohl: Dict[str, Any]) -> Dict[str, Any]:
+    """Garante que ohl['eq'] e ohl['cr'] sejam dicts (não str, não None)."""
+    for k in ("eq", "cr"):
+        v = ohl.get(k)
+        if isinstance(v, str):
+            try:
+                ohl[k] = json.loads(v)
+            except Exception:
+                ohl[k] = {}
+        elif v is None or not isinstance(v, dict):
+            ohl[k] = {}
+    return ohl
 
 
-def _sha256_bytes(b: bytes) -> str:
-    return hashlib.sha256(b).hexdigest()
+# ---------- leitura unificada de séries ----------
 
-
-def _to_iso_utc(ts: Union[int, float, str]) -> Optional[str]:
+def _series_from_node(node: Any) -> Tuple[Optional[float], Optional[str], Optional[float], Optional[float], Optional[float]]:
     """
-    Converte epoch seconds (int/float) ou string YYYY-MM-DD[THH:MM:SS] em ISO UTC.
-    Retorna None se não conseguir.
+    Retorna: (last_close, last_close_at_iso_utc, pct7, pct10, pct30)
+    Aceita:
+      A) colunar: {"c":[...floats...], "t":[...epoch(s|ms)/iso...]}
+      B) lista de objetos: [{"close"| "c"| "C"| "Close":...,"time"| "timestamp"| "t"| "Date": ...}, ...]
     """
-    try:
-        if isinstance(ts, (int, float)):
-            return dt.datetime.utcfromtimestamp(int(ts)).replace(tzinfo=dt.timezone.utc).isoformat().replace("+00:00", "Z")
-        s = str(ts)
-        # Se vier 'YYYY-MM-DD' assumimos 00:00:00Z do DIA
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
-            d = dt.datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
-            return d.isoformat().replace("+00:00", "Z")
-        # Se vier ISO já com TZ/sem TZ, normalizamos para Z
-        return dt.datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
-    except Exception:
-        return None
+    # pct em cima de vetor 'c'
+    def pct(arr: List[float], days: int) -> Optional[float]:
+        if not isinstance(arr, list) or len(arr) <= days:
+            return None
+        try:
+            c_now = float(arr[-1])
+            c_then = float(arr[-1 - days])
+            return (c_now / c_then - 1.0) * 100.0
+        except Exception:
+            return None
+
+    # Formato A: colunar
+    if isinstance(node, dict) and ("c" in node) and ("t" in node) and isinstance(node["c"], list) and isinstance(node["t"], list):
+        c = node["c"]
+        t = node["t"]
+        last_close = float(c[-1]) if c else None
+        last_ts = to_iso_utc(t[-1]) if t else None
+        return last_close, last_ts, pct(c, 7), pct(c, 10), pct(c, 30)
+
+    # Formato B: lista de candles
+    if isinstance(node, list) and node:
+        def get_close(i: int) -> Optional[float]:
+            x = node[i]
+            if not isinstance(x, dict):
+                return None
+            for k in ("close", "c", "Close", "C"):
+                if k in x and x[k] is not None:
+                    try:
+                        return float(x[k])
+                    except Exception:
+                        return None
+            return None
+
+        def get_time(i: int) -> Any:
+            x = node[i]
+            if not isinstance(x, dict):
+                return None
+            for k in ("time", "timestamp", "t", "Date", "date"):
+                if k in x:
+                    return x[k]
+            return None
+
+        # precisa de pelo menos 31 pontos para pct_30
+        if len(node) >= 31:
+            try:
+                c_arr = [get_close(i) for i in range(len(node))]
+                c_arr = [v for v in c_arr if v is not None]
+                last = node[-1]
+                last_close = float(last.get("close") or last.get("c") or last.get("Close") or last.get("C"))
+                last_ts = to_iso_utc(get_time(len(node) - 1))
+                return last_close, last_ts, pct(c_arr, 7), pct(c_arr, 10), pct(c_arr, 30)
+            except Exception:
+                pass
+
+    return None, None, None, None, None
 
 
-# ----------------------------
-# Extração / shapes esperados
-# ----------------------------
+# ---------- indicadores -> mapa ----------
 
-def load_pointer() -> Dict[str, str]:
-    if not os.path.exists(POINTER_PATH):
-        raise FileNotFoundError(f"Pointer não encontrado em {POINTER_PATH}")
-    p = _read_json(POINTER_PATH)
-    for k in ("ohlcv_url", "indicators_url", "signals_url"):
-        if k not in p:
-            raise ValueError(f"Pointer inválido: falta chave {k}")
-    return p
+def _indicators_map(ind_any: Any) -> Dict[str, Dict[str, Any]]:
+    """Aceita indicadores agrupados ({"eq":[...], "cr":[...]}) OU flat (lista). Retorna mapa por símbolo."""
+    rows: List[Dict[str, Any]] = []
+    if isinstance(ind_any, dict):
+        if isinstance(ind_any.get("eq"), list):
+            rows.extend(ind_any.get("eq") or [])
+        if isinstance(ind_any.get("cr"), list):
+            rows.extend(ind_any.get("cr") or [])
+        # fallback: alguns dumps podem estar "flat" dentro do root
+        if not rows:
+            if isinstance(ind_any.get("rows"), list):
+                rows.extend(ind_any.get("rows") or [])
+    elif isinstance(ind_any, list):
+        rows = ind_any
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        sym = r.get("symbol_canonical") or r.get("symbol") or r.get("sym")
+        if not sym:
+            continue
+
+        def g(*keys):
+            for kk in keys:
+                if kk in r and r[kk] is not None:
+                    return r[kk]
+            return None
+
+        out[sym] = {
+            "rsi14": g("RSI14", "rsi14"),
+            "atr14": g("ATR14", "atr14"),
+            "bb_ma20": g("BB_MA20", "bb_ma20"),
+            "bb_lower": g("BB_LOWER", "bb_lower"),
+            "bb_upper": g("BB_UPPER", "bb_upper"),
+        }
+    return out
 
 
-def extract_watchlists(feed: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+# ---------- signals (raw) -> set de símbolos ----------
+
+def _extract_watchlists(feed_any: Any) -> Tuple[List[str], List[str]]:
     """
-    Retorna (eq_list, cr_list) a partir do feed.
-    Aceita 'universe.watchlists.avenue/binance' e formatos legados.
+    Procura watchlists de eq e cr (tanto como lista de strings quanto lista de dicts).
+    Retorna (eq_symbols, cr_symbols)
     """
     eq: List[str] = []
     cr: List[str] = []
-
-    uni = (feed or {}).get("universe", {})
-    w = (uni or {}).get("watchlists", {})
-    av = (w or {}).get("avenue", {})
-    bn = (w or {}).get("binance", {})
-
-    def _to_syms(x):
-        # pode vir lista de strings ou lista de objetos {symbol: "..."}
-        if not x:
-            return []
-        out = []
-        for item in x:
-            if isinstance(item, str):
-                out.append(item)
-            elif isinstance(item, dict):
-                val = item.get("symbol") or item.get("symbol_canonical") or item.get("ticker") or item.get("pair")
-                if val:
-                    out.append(val)
-        return out
-
-    eq = _to_syms(av.get("whitelist", [])) + _to_syms(av.get("candidate_pool", []))
-    cr = _to_syms(bn.get("whitelist", [])) + _to_syms(bn.get("candidate_pool", []))
-
-    # dedup preservando ordem
-    def _dedup(seq: List[str]) -> List[str]:
+    if isinstance(feed_any, dict):
+        for k in ("eq", "stocks", "equities"):
+            v = feed_any.get(k)
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, str):
+                        eq.append(item)
+                    elif isinstance(item, dict):
+                        s = item.get("symbol_canonical") or item.get("symbol") or item.get("sym")
+                        if s:
+                            eq.append(s)
+        for k in ("cr", "crypto", "coins"):
+            v = feed_any.get(k)
+            if isinstance(v, list):
+                for item in v:
+                    if isinstance(item, str):
+                        cr.append(item)
+                    elif isinstance(item, dict):
+                        s = item.get("symbol_canonical") or item.get("symbol") or item.get("sym")
+                        if s:
+                            cr.append(s)
+    # unique, preserve order
+    def uniq(lst):
         seen = set()
         out = []
-        for x in seq:
+        for x in lst:
             if x not in seen:
-                seen.add(x)
                 out.append(x)
+                seen.add(x)
         return out
 
-    return _dedup(eq), _dedup(cr)
+    return uniq(eq), uniq(cr)
 
 
-# ----------------------------
-# Transform helpers por símbolo
-# ----------------------------
+# ---------- payload builder ----------
 
-def last_close_and_ts_from_ohlcv(series: List[Dict[str, Any]]) -> Tuple[Optional[float], Optional[str]]:
-    """
-    Espera lista de candles [{date: 'YYYY-MM-DD' ou ISO ou epoch, close: float}, ...]
-    Pega o último elemento.
-    """
-    if not series:
-        return None, None
-    last = series[-1]
-    close = last.get("close")
-    d = last.get("date") or last.get("time") or last.get("t")  # flexível
-    iso = _to_iso_utc(d) if d is not None else None
-    try:
-        close = float(close) if close is not None else None
-    except Exception:
-        close = None
-    return close, iso
+def build_payload(with_universe: bool = True) -> Dict[str, Any]:
+    # pointer principal
+    pointer = _read_json(POINTER_PATH)
+    ohl_url = pointer.get("ohlcv_url")
+    ind_url = pointer.get("indicators_url")
+    raw_signals_url = pointer.get("signals_url")
 
+    # lê fontes
+    ohl = _normalize_sections(_read_json(ohl_url))
+    ind = _read_json(ind_url)
+    raw_signals = _read_json(raw_signals_url)
 
-def pct_chg_from_window(series: List[Dict[str, Any]], days: int) -> Optional[float]:
-    """
-    Calcula variação percentual entre último close e close de N dias atrás.
-    Supõe 1 candle/dia; se faltar profundidade, retorna None.
-    """
-    n = len(series or [])
-    if n < (days + 1):
-        return None
-    try:
-        last = float(series[-1]["close"])
-        prev = float(series[-(days + 1)]["close"])
-        if prev == 0:
-            return None
-        return 100.0 * (last - prev) / prev
-    except Exception:
-        return None
-
-
-def enrich_item_with_indicators(item: Dict[str, Any]) -> None:
-    """Calcula atr14_pct quando possível."""
-    price = item.get("price_now_close")
-    atr14 = item.get("atr14")
-    try:
-        if price is not None and atr14 is not None:
-            item["atr14_pct"] = round(100.0 * float(atr14) / float(price), 4)
-    except Exception:
-        pass
-
-
-# ----------------------------
-# Construção do payload
-# ----------------------------
-
-def build_payload(with_universe: bool = False) -> dict:
-    pointer = _read_json(os.path.join(ROOT, "public", "pointer.json"))
-    ohl = _read_json(pointer["ohlcv_url"])
-    ind = _read_json(pointer["indicators_url"])
-
-    # --- Ler sinais brutos do pointer (podem ser OBJ ou LISTA) ---
-    raw_signals = _read_json(pointer["signals_url"])
-    if isinstance(raw_signals, list):
-        # Formato legado: lista pura de itens de sinal
-        raw_signals_hdr = {}
-        raw_signals_list = raw_signals
-    elif isinstance(raw_signals, dict):
-        raw_signals_hdr = raw_signals
-        raw_signals_list = raw_signals.get("signals", [])
-    else:
-        raise TypeError(f"Formato inesperado em signals_url: {type(raw_signals)}")
-
-    # --- Descobrir generated_at_brt do melhor lugar ---
+    # metadados de horário
     generated_at_brt = (
-        raw_signals_hdr.get("generated_at_brt")
-        if isinstance(raw_signals_hdr, dict) else None
-    ) or ind.get("generated_at_brt") or ohl.get("generated_at_brt")
+        raw_signals.get("generated_at_brt")
+        if isinstance(raw_signals, dict) else None
+    ) or ind.get("generated_at_brt") or ohl.get("generated_at_brt") or now_brt_iso()
 
-    # --- Extrair watchlists do feed ---
-    feed = _read_json(DEFAULT_FEED_URL)
-    eq_list, cr_list = _extract_watchlists(feed)
-
-    # --- Montar universo (se solicitado) ---
-    universe = []
-    if with_universe:
-        universe = _build_universe(eq_list, cr_list, ohl, ind)
-
-    # --- Construir sinais já no contrato v1 (podem estar vazios) ---
-    signals_v1 = _project_signals_v1(raw_signals_list, ohl, ind)
-
-    # --- Cabeçalho v1 ---
-    payload = {
-        "schema_version": "1.0",
-        "generated_at_brt": generated_at_brt,
-        "universe_counts": { "avenue": len(eq_list), "binance": len(cr_list) },
-        "sources": {
-            "eq_primary": "stooq", "eq_backup": "yahoo", "eq_sanity": "nasdaq",
-            "cr_primary": "binance", "cr_backup": "coingecko", "cr_sanity": "kraken"
-        },
-        "window_policy": { "target_days": 7, "fallback_days": 30 },
-        "priceguard": { "eq_tolerance_pct": 0.8, "cr_tolerance_pct": 0.35, "mode": "dual_or_single_with_sanity" },
-        "overlays": { "vix_gt_25": False, "dxy_up_3d_0p8": False, "usdt_depeg": False },
-        "list_policy": {
-            "watchlists": ["whitelist","candidate_pool"],
-            "coverage": { "whitelist": "100%", "candidate_pool": "rotating" }
-        },
-        "signals": signals_v1,
-        "errors": [],
-        "telemetry": {
-            "run_id": _make_run_id_v1(generated_at_brt),
-            "eq_status": "OK", "cr_status": "OK",
-            "fallback_used": { "eq": [], "cr": [] }
-        }
+    # clock
+    clock = {
+        "market_day_brt": brt_date_today(),
+        "is_trading_day_us": bool(pointer.get("is_trading_day_us", True)),
+        "is_trading_day_crypto": True,
     }
 
-    if with_universe:
-        payload["universe"] = universe
+    # indicadores por símbolo
+    ind_map = _indicators_map(ind)
 
+    # tenta preservar derivatives do latest anterior
+    prev_latest_map: Dict[str, Dict[str, Any]] = {}
+    prev_latest_path = os.path.join(OUT_DIR, "n_signals_v1_latest.json")
+    if os.path.exists(prev_latest_path):
+        try:
+            prev = _read_json(prev_latest_path)
+            for it in prev.get("universe", []):
+                sym = it.get("symbol_canonical")
+                if sym and "derivatives" in it:
+                    prev_latest_map[sym] = it["derivatives"]
+        except Exception:
+            pass
+
+    universe: List[Dict[str, Any]] = []
+    if with_universe:
+        # partir do universo observado em OHLCV
+        # (chaves em ohl["eq"] e ohl["cr"])
+        for asset_type, sec in (("eq", ohl.get("eq", {})), ("crypto", ohl.get("cr", {}))):
+            if not isinstance(sec, dict):
+                continue
+            for sym, node in sec.items():
+                # extrai preços/variações
+                last_close, last_ts, p7, p10, p30 = _series_from_node(node)
+
+                ind_row = ind_map.get(sym, {}) if isinstance(ind_map, dict) else {}
+
+                # fontes/priceguard
+                if asset_type == "eq":
+                    sources_used = ["yahoo", "stooq", "nasdaq"]
+                else:
+                    sources_used = ["binance", "coingecko"]
+
+                priceguard = "OK" if (last_close is not None and p7 is not None) else ("PART" if last_close is not None else "FAIL")
+                window_used = node.get("window") if isinstance(node, dict) else "7d"  # best effort
+
+                item = {
+                    "symbol_canonical": sym,
+                    "asset_type": "eq" if asset_type == "eq" else "crypto",
+                    "venue": sym.split(":")[0] if ":" in sym else None,
+                    "window_used": window_used or "7d",
+
+                    "price_now_close": last_close,
+                    "price_now_close_at_utc": last_ts,
+
+                    "pct_chg_7d": p7,
+                    "pct_chg_10d": p10,
+                    "pct_chg_30d": p30,
+
+                    "rsi14": _safe_float(ind_row.get("rsi14")),
+                    "atr14": _safe_float(ind_row.get("atr14")),
+                    "bb_ma20": _safe_float(ind_row.get("bb_ma20")),
+                    "bb_lower": _safe_float(ind_row.get("bb_lower")),
+                    "bb_upper": _safe_float(ind_row.get("bb_upper")),
+
+                    "levels": [],
+                    "confidence": "low",
+
+                    "validation": {
+                        "priceguard": priceguard,
+                        "window_status": "TARGET" if (window_used or "7d") == "7d" else "SHORT_WINDOW",
+                        "sources_used": sources_used,
+                    },
+                }
+
+                # derivações previamente conhecidas (cripto)
+                if asset_type == "crypto":
+                    if sym in prev_latest_map:
+                        item["derivatives"] = prev_latest_map[sym]
+
+                universe.append(item)
+
+    payload = {
+        "schema_version": SCHEMA_VERSION,
+        "run_id": f"n_signals_v1_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
+        "generated_at_brt": generated_at_brt,
+        "clock": clock,
+        "signals": [],   # no momento derivamos tudo do universo; sinais específicos podem ser adicionados aqui
+        "universe": universe,
+    }
     return payload
 
 
-# ----------------------------
-# Pointer v1 (aponta para latest)
-# ----------------------------
-
-def update_pointer_signals_v1(latest_relpath: str, expires_hours: int = 24, raw_base: str = RAW_BASE_DEFAULT) -> Dict[str, Any]:
-    # Normaliza // duplicadas
-    latest_relpath = latest_relpath.lstrip("/")
-    url = f"{raw_base}/{latest_relpath}"
-    # generated_at_brt vem dentro do arquivo
+def _safe_float(x: Any) -> Optional[float]:
     try:
-        meta = _read_json(os.path.join(ROOT, latest_relpath))
-        gen = meta.get("generated_at_brt")
+        if x is None:
+            return None
+        return float(x)
     except Exception:
-        gen = None
+        return None
 
-    exp = (dt.datetime.utcnow() + dt.timedelta(hours=expires_hours)).replace(tzinfo=dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    pointer = {
+
+# ---------- pointer_signals_v1 ----------
+
+def update_pointer_signals_v1(latest_rel_path: str, generated_at_brt: str) -> Dict[str, Any]:
+    expires_at_utc = datetime.now(timezone.utc).replace(microsecond=0)
+    # 24h de validade
+    expires_at_utc = (expires_at_utc).isoformat().replace("+00:00", "Z")
+
+    pointer_obj = {
         "version": "1.0",
-        "generated_at_brt": gen,
-        "signals_url": url,
-        "expires_at_utc": exp,
+        "generated_at_brt": generated_at_brt,
+        "signals_url": f"{RAW_BASE}/{latest_rel_path}",
+        "expires_at_utc": expires_at_utc,
     }
-    _write_json(POINTER_SIG_V1_PATH, pointer)
-    return pointer
+    _write_json(os.path.join(OUT_DIR, "pointer_signals_v1.json"), pointer_obj)
+    return pointer_obj
 
 
-# ----------------------------
-# Main CLI
-# ----------------------------
+# ---------- main ----------
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--with-universe", action="store_true", help="Inclui array 'universe' no JSON final")
-    ap.add_argument("--write-latest", action="store_true", help="Grava também public/n_signals_v1_latest.json")
-    ap.add_argument("--update-pointer", action="store_true", help="Atualiza public/pointer_signals_v1.json para apontar para o latest")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description="Exporta n_signals_v1 a partir de OHLC/INDIC/SIGNALS do pointer.")
+    parser.add_argument("--with-universe", action="store_true", help="inclui bloco universe")
+    parser.add_argument("--write-latest", action="store_true", help="também escreve n_signals_v1_latest.json")
+    parser.add_argument("--update-pointer", action="store_true", help="atualiza public/pointer_signals_v1.json")
+    args = parser.parse_args()
 
     payload = build_payload(with_universe=args.with_universe)
 
-    # content_sha256 (do conteúdo final) — escrevemos primeiro num buffer em memória
-    b = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=False).encode("utf-8")
-    payload["content_sha256"] = _sha256_bytes(b)
+    # caminho versionado
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out_ver = os.path.join(OUT_DIR, f"n_signals_v1_{ts}.json")
+    _write_json(out_ver, payload)
+    print(f"[ok] gerado {out_ver}")
 
-    # Agora escrevemos em disco (carimbando com o content_sha256 já inserido)
-    tsz = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    out_name = f"n_signals_v1_{tsz}.json"
-    out_path = os.path.join(PUBLIC_DIR, out_name)
-    _write_json(out_path, payload)
-    print(f"[ok] gerado {out_path}")
-
+    # latest
     latest_rel = "public/n_signals_v1_latest.json"
+    latest_abs = os.path.join(OUT_DIR, "n_signals_v1_latest.json")
     if args.write_latest:
-        latest_path = os.path.join(ROOT, latest_rel)
-        _write_json(latest_path, payload)
-        print(f"[ok] gerado {latest_path}")
+        _write_json(latest_abs, payload)
+        print(f"[ok] gerado {latest_abs}")
 
-    if args.update_pointer and args.write_latest:
-        pointer = update_pointer_signals_v1(latest_relpath=latest_rel, expires_hours=24, raw_base=RAW_BASE_DEFAULT)
-        print(f"[ok] pointer atualizado: {POINTER_SIG_V1_PATH}")
-        # feedback útil
-        print(json.dumps(pointer, ensure_ascii=False, indent=2))
+    # pointer
+    if args.update_pointer:
+        pointer_obj = update_pointer_signals_v1(latest_rel, payload.get("generated_at_brt"))
+        print(f"[ok] pointer atualizado: public/pointer_signals_v1.json")
+        print(f"[info] pointer signals_url: {pointer_obj['signals_url']}")
 
 
 if __name__ == "__main__":
     main()
-try:
-    DEFAULT_FEED_URL
-except NameError:  # define if missing
-    import os as _os
-    DEFAULT_FEED_URL = _os.environ.get(
-        "FEED_URL",
-        "https://raw.githubusercontent.com/giuksbr/finance_feed/main/feed.json"
-    )
-# -------------------------------------------------------------------------
