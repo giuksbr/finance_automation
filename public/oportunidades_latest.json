@@ -1,21 +1,21 @@
 {
-  "generated_at_brt": "2025-10-23 13:18:36",
+  "generated_at_brt": "2025-10-23 14:08:54",
   "status": "OK",
   "status_reason": null,
   "inputs": {
     "feed_url": "https://raw.githubusercontent.com/giuksbr/finance_feed/refs/heads/main/feed.json",
     "signals_url": "https://raw.githubusercontent.com/giuksbr/finance_automation/main/public/n_signals_v1_latest.json",
-    "signals_run_id": "n_signals_v1_20251023T161833Z",
-    "signals_generated_at_brt": "2025-10-23T13:17:00-03:00"
+    "signals_run_id": "n_signals_v1_20251023T170851Z",
+    "signals_generated_at_brt": "2025-10-23T14:07:21-03:00"
   },
   "liveguard": {
     "state": "OK",
     "crypto_refs": {
-      "BTCUSDT": 110033.67333333334,
-      "ETHUSDT": 3878.096666666667
+      "BTCUSDT": 109725.50166666666,
+      "ETHUSDT": 3880.8783333333336
     },
     "eq_refs": {
-      "VUG": 484.0825
+      "VUG": 484.735
     },
     "sources": {
       "BTCUSDT": [
@@ -35,8 +35,8 @@
   },
   "feed_snapshot": {
     "usdt_balance_usd": 4281.6778415,
-    "usdt_pct": 27.141270204422714,
-    "btc_cap_pct": 39.83034178715968,
+    "usdt_pct": 27.159988210807395,
+    "btc_cap_pct": 39.77585541671835,
     "winners_count": 0
   },
   "universe_summary": {
@@ -816,9 +816,7 @@
     {
       "symbol_canonical": "NYSE:VST",
       "asset_type": "eq",
-      "levels": [
-        "N_LITE_N3"
-      ],
+      "levels": [],
       "validation": {
         "priceguard": "OK",
         "sources_used": [
@@ -833,7 +831,7 @@
         "has_pct": true,
         "lockout_applied": false
       },
-      "status_msg": "Elegível por níveis: N_LITE_N3"
+      "status_msg": "Sem gatilho de nível"
     },
     {
       "symbol_canonical": "NYSEARCA:ARGT",
