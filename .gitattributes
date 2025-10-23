@@ -1,0 +1,7 @@
+# Force LF for data files served via RAW
+*.csv text eol=lf
+*.json text eol=lf
+
+# (opcional) normalize scripts também
+*.py  text eol=lf
+*.sh  text eol=lf
