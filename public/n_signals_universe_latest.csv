@@ -1,1 +1,7 @@
 symbol_canonical,asset_type,venue,window_used,price_now_close,price_now_close_at_utc,pct_chg_7d,pct_chg_10d,pct_chg_30d,rsi14,atr14,atr14_pct,bb_ma20,bb_lower,bb_upper,funding,oi_chg_3d_pct,priceguard,window_status,sources_used
+,eq,,,,,,,,,,,,,,,,,,
+,eq,,,,,,,,,,,,,,,,,,
+,eq,,,,,,,,,,,,,,,,,,
+,cr,,,,,,,,,,,,,,,,,,
+,cr,,,,,,,,,,,,,,,,,,
+,cr,,,,,,,,,,,,,,,,,,

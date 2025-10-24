@@ -1,0 +1,32 @@
+{
+  "generated_at_brt": "2025-10-24T20:31:54-03:00",
+  "eq": {
+    "NYSEARCA:VUG": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IVW": {
+      "window": "7d",
+      "count": 65
+    },
+    "NYSEARCA:IUSG": {
+      "window": "7d",
+      "count": 65
+    }
+  },
+  "cr": {
+    "BINANCE:BTCUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:ETHUSDT": {
+      "window": "7d",
+      "count": 30
+    },
+    "BINANCE:SOLUSDT": {
+      "window": "7d",
+      "count": 30
+    }
+  },
+  "errors": []
+}
