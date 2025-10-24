@@ -2,23 +2,18 @@
 # -*- coding: utf-8 -*-
 
 """
-feed.py — leitura do feed JSON com fallback local + fallback de WATCHLISTS e
-extração robusta das listas (eq/cr) a partir de múltiplos formatos.
+feed.py — leitura do feed JSON com fallback local + extração robusta de watchlists.
 
-Novidades:
-- Suporte a vários esquemas de watchlists:
-    .watchlists.eq / .watchlists.cr
-    .watchlists.whitelist (lista mista)
-    .universe.eq / .universe.cr
-    .symbols.eq / .symbols.cr
-    .eq / .cr (top-level)
-    .whitelist (lista mista)
-- Suporte a caminho configurável em config.yaml:
-    feed_watchlists_path:
-      eq: "universe.eq"       # caminho para a lista de eq
-      cr: "universe.cr"       # caminho para a lista de cr
-  (ou por variável de ambiente FEED_WATCHLISTS_EQ_PATH / FEED_WATCHLISTS_CR_PATH)
-- Logs claros dizendo de onde veio cada lista.
+Compatibilidade com o feed enviado:
+- Lê watchlists em universe.watchlists.avenue.{whitelist,candidate_pool} (objetos)
+- Lê watchlists em universe.watchlists.binance.{whitelist,candidate_pool} (objetos)
+- Usa symbol_canonical dos objetos; classifica:
+    * binance -> cr
+    * avenue  -> eq
+    * fallback por asset_type: 'crypto' -> cr, senão -> eq
+Mantém os fallbacks anteriores e as outras rotas (watchlists.eq/cr, etc).
+
+Obs.: só o FEED é “web-first”. O restante da pipeline continua local-first.
 """
 
 from __future__ import annotations
@@ -210,14 +205,101 @@ def fetch_feed(url: str,
 
 # ---------------- Extração de watchlists ----------------
 
-def _parse_mixed_list(mixed: List[str]) -> Tuple[List[str], List[str]]:
-    """Heurística: separa provável cr vs eq pela presença de prefixos de exchange cripto."""
+def _symbol_from_obj(o: Any) -> Optional[str]:
+    """
+    Extrai symbol_canonical de um objeto de watchlist (ou None).
+    """
+    if not isinstance(o, dict):
+        return None
+    sym = o.get("symbol_canonical") or o.get("symbol") or o.get("ticker")
+    if isinstance(sym, str) and sym.strip():
+        return sym.strip()
+    return None
+
+
+def _classify_eq_cr(o: Any, default_bucket: str) -> str:
+    """
+    Classifica como 'eq' ou 'cr' com base no asset_type/venue; senão usa default_bucket.
+    """
+    if isinstance(o, dict):
+        at = (o.get("asset_type") or "").strip().lower()
+        venue = (o.get("venue") or "").strip().upper()
+        if at == "crypto" or venue == "BINANCE":
+            return "cr"
+        # ETFs e equities tratamos como 'eq'
+        if at in {"equity", "etf"}:
+            return "eq"
+    return default_bucket
+
+
+def _extract_from_universe_watchlists(feed: Dict[str, Any]) -> Tuple[List[str], List[str], List[str]]:
+    """
+    Lê universe.watchlists.avenue/binance.{whitelist,candidate_pool} como no feed enviado.
+    Retorna (eq_list, cr_list, candidate_pool_all).
+    """
+    eq: List[str] = []
+    cr: List[str] = []
+    cand_all: List[str] = []
+
+    wl_root = _get_by_path(feed, "universe.watchlists")
+    if not isinstance(wl_root, dict):
+        return [], [], []
+
+    # avenue.{whitelist,candidate_pool}
+    avenue = wl_root.get("avenue") if isinstance(wl_root.get("avenue"), dict) else {}
+    if isinstance(avenue, dict):
+        for key in ("whitelist", "candidate_pool"):
+            arr = avenue.get(key)
+            if isinstance(arr, list):
+                for item in arr:
+                    sym = _symbol_from_obj(item) if not isinstance(item, str) else item
+                    if not sym:
+                        continue
+                    bucket = _classify_eq_cr(item, default_bucket="eq")
+                    if bucket == "eq":
+                        eq.append(sym)
+                    else:
+                        cr.append(sym)
+                    if key == "candidate_pool":
+                        cand_all.append(sym)
+
+    # binance.{whitelist,candidate_pool}
+    binance = wl_root.get("binance") if isinstance(wl_root.get("binance"), dict) else {}
+    if isinstance(binance, dict):
+        for key in ("whitelist", "candidate_pool"):
+            arr = binance.get(key)
+            if isinstance(arr, list):
+                for item in arr:
+                    sym = _symbol_from_obj(item) if not isinstance(item, str) else item
+                    if not sym:
+                        continue
+                    bucket = _classify_eq_cr(item, default_bucket="cr")
+                    if bucket == "eq":
+                        eq.append(sym)
+                    else:
+                        cr.append(sym)
+                    if key == "candidate_pool":
+                        cand_all.append(sym)
+
+    return _uniq(eq), _uniq(cr), _uniq(cand_all)
+
+
+def _parse_mixed_list(mixed: List[Any]) -> Tuple[List[str], List[str]]:
+    """
+    Heurística legada: recebe lista de strings OU objetos e separa provável cr/eq.
+    """
     if not mixed:
         return [], []
     cr_prefixes = {"BINANCE", "CRYPTO", "GATE", "KRAKEN", "COINBASE", "BYBIT", "OKX"}
     eq_guess, cr_guess = [], []
     for s in mixed:
-        s2 = str(s).strip()
+        if isinstance(s, dict):
+            sym = _symbol_from_obj(s)
+        else:
+            sym = str(s) if s is not None else None
+        if not sym:
+            continue
+        s2 = sym.strip()
         if ":" in s2:
             prefix = s2.split(":", 1)[0].upper()
             if prefix in cr_prefixes:
@@ -236,22 +318,32 @@ def _try_via_config(feed: Dict[str, Any]) -> Tuple[List[str], List[str], str]:
     if not eq_path and not cr_path:
         return [], [], ""
 
-    eq = _get_by_path(feed, eq_path) if eq_path else None
-    cr = _get_by_path(feed, cr_path) if cr_path else None
+    def _coerce_list(x: Any) -> List[str]:
+        if isinstance(x, list):
+            out: List[str] = []
+            for it in x:
+                if isinstance(it, str):
+                    out.append(it)
+                elif isinstance(it, dict):
+                    s = _symbol_from_obj(it)
+                    if s:
+                        out.append(s)
+            return out
+        return []
 
-    eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
-    cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+    eq = _coerce_list(_get_by_path(feed, eq_path) if eq_path else None)
+    cr = _coerce_list(_get_by_path(feed, cr_path) if cr_path else None)
 
-    if eq_list or cr_list:
+    if eq or cr:
         LOG.info(f"Watchlists extraídas via config.yaml (eq_path='{eq_path}' cr_path='{cr_path}')")
-        return eq_list, cr_list, "config"
+        return _uniq(eq), _uniq(cr), "config"
 
     return [], [], ""
 
 
 def _extract_watchlists_from_known_shapes(feed: Dict[str, Any]) -> Tuple[List[str], List[str], str]:
     """
-    Tenta diversos formatos conhecidos, retornando (eq, cr, origem).
+    Formatos herdados (strings ou objetos rasos).
     """
     # 1) .watchlists.eq/cr
     wl = feed.get("watchlists")
@@ -259,15 +351,22 @@ def _extract_watchlists_from_known_shapes(feed: Dict[str, Any]) -> Tuple[List[st
         eq = wl.get("eq") or []
         cr = wl.get("cr") or []
         if isinstance(eq, list) or isinstance(cr, list):
-            eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
-            cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+            eq_list, cr_list = [], []
+            if isinstance(eq, list):
+                for it in eq:
+                    eq_list.append(_symbol_from_obj(it) if isinstance(it, dict) else str(it))
+            if isinstance(cr, list):
+                for it in cr:
+                    cr_list.append(_symbol_from_obj(it) if isinstance(it, dict) else str(it))
+            eq_list = _uniq([x for x in eq_list if x])
+            cr_list = _uniq([x for x in cr_list if x])
             if eq_list or cr_list:
                 return eq_list, cr_list, "watchlists.eq/cr"
 
         # 1.1) .watchlists.whitelist (misto)
         mix = wl.get("whitelist") or []
         if isinstance(mix, list) and mix:
-            eq_list, cr_list = _parse_mixed_list([str(x) for x in mix])
+            eq_list, cr_list = _parse_mixed_list(mix)
             if eq_list or cr_list:
                 return eq_list, cr_list, "watchlists.whitelist"
 
@@ -277,8 +376,13 @@ def _extract_watchlists_from_known_shapes(feed: Dict[str, Any]) -> Tuple[List[st
         eq = u.get("eq") or []
         cr = u.get("cr") or []
         if isinstance(eq, list) or isinstance(cr, list):
-            eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
-            cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+            def _coerce(L):
+                out = []
+                for it in (L or []):
+                    out.append(_symbol_from_obj(it) if isinstance(it, dict) else str(it))
+                return [x for x in out if x]
+            eq_list = _uniq(_coerce(eq)) if isinstance(eq, list) else []
+            cr_list = _uniq(_coerce(cr)) if isinstance(cr, list) else []
             if eq_list or cr_list:
                 return eq_list, cr_list, "universe.eq/cr"
 
@@ -288,8 +392,13 @@ def _extract_watchlists_from_known_shapes(feed: Dict[str, Any]) -> Tuple[List[st
         eq = s.get("eq") or []
         cr = s.get("cr") or []
         if isinstance(eq, list) or isinstance(cr, list):
-            eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
-            cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+            def _coerce(L):
+                out = []
+                for it in (L or []):
+                    out.append(_symbol_from_obj(it) if isinstance(it, dict) else str(it))
+                return [x for x in out if x]
+            eq_list = _uniq(_coerce(eq)) if isinstance(eq, list) else []
+            cr_list = _uniq(_coerce(cr)) if isinstance(cr, list) else []
             if eq_list or cr_list:
                 return eq_list, cr_list, "symbols.eq/cr"
 
@@ -297,15 +406,14 @@ def _extract_watchlists_from_known_shapes(feed: Dict[str, Any]) -> Tuple[List[st
     eq = feed.get("eq")
     cr = feed.get("cr")
     if isinstance(eq, list) or isinstance(cr, list):
-        eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
-        cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+        eq_list, cr_list = _parse_mixed_list((eq or []) + (cr or []))
         if eq_list or cr_list:
             return eq_list, cr_list, "top.eq/cr"
 
     # 5) .whitelist (misto no topo)
     wl2 = feed.get("whitelist")
     if isinstance(wl2, list) and wl2:
-        eq_list, cr_list = _parse_mixed_list([str(x) for x in wl2])
+        eq_list, cr_list = _parse_mixed_list(wl2)
         if eq_list or cr_list:
             return eq_list, cr_list, "top.whitelist"
 
@@ -325,40 +433,42 @@ def extract_watchlists(feed: Dict[str, Any]) -> Dict[str, List[str]]:
     Retorna:
       {"eq":[...], "cr":[...], "all":[...], "candidate_pool":[...]}
     Estratégia:
+      0) tenta universo.watchlists.* (estrutura do feed enviado);
       1) tenta via config (caminhos explícitos);
       2) tenta formatos conhecidos;
       3) se ainda vazio → fallback local (out/watchlists_local.json).
     """
+    # 0) estrutura enviada
+    eq0, cr0, cand0 = _extract_from_universe_watchlists(feed)
+    if eq0 or cr0:
+        LOG.info(f"Watchlists extraídas do feed (universe.watchlists.*) — eq={len(eq0)} cr={len(cr0)}")
+        return {"eq": eq0, "cr": cr0, "all": _uniq(eq0 + cr0), "candidate_pool": cand0}
+
     # 1) via config
     eq, cr, origin = _try_via_config(feed)
-    if not (eq or cr):
-        # 2) formatos conhecidos
-        eq, cr, origin = _extract_watchlists_from_known_shapes(feed)
-
-    cp: List[str] = []
-    # candidate_pool em caminhos usuais
-    for path in ("watchlists.candidate_pool", "candidate_pool", "universe.candidate_pool"):
-        node = _get_by_path(feed, path)
-        if isinstance(node, list) and node:
-            cp = _uniq([str(x) for x in node])
-            break
-
     if eq or cr:
-        LOG.info(f"Watchlists extraídas do feed ({origin}) — eq={len(eq)} cr={len(cr)}")
-        return {"eq": eq, "cr": cr, "all": _uniq(eq + cr), "candidate_pool": cp}
+        return {"eq": eq, "cr": cr, "all": _uniq(eq + cr), "candidate_pool": []}
+
+    # 2) formatos conhecidos
+    eq2, cr2, origin2 = _extract_watchlists_from_known_shapes(feed)
+    if eq2 or cr2:
+        LOG.info(f"Watchlists extraídas do feed ({origin2}) — eq={len(eq2)} cr={len(cr2)}")
+        return {"eq": eq2, "cr": cr2, "all": _uniq(eq2 + cr2), "candidate_pool": []}
 
     # 3) fallback local
     local_wl = _get_local_wl_path(_DEFAULT_LOCAL_WL)
+    eq3: List[str] = []
+    cr3: List[str] = []
     if os.path.exists(local_wl):
         try:
             wl_local = _load_local_watchlists(local_wl)
-            eq = wl_local.get("eq", []) or []
-            cr = wl_local.get("cr", []) or []
-            LOG.info(f"Watchlists do feed ausentes/vazias — usando fallback local: {local_wl} (eq={len(eq)} cr={len(cr)})")
+            eq3 = wl_local.get("eq", []) or []
+            cr3 = wl_local.get("cr", []) or []
+            LOG.info(f"Watchlists do feed ausentes/vazias — usando fallback local: {local_wl} (eq={len(eq3)} cr={len(cr3)})")
         except Exception as e:
             LOG.warning(f"Falha ao ler fallback local de watchlists '{local_wl}': {e}")
 
-    return {"eq": eq, "cr": cr, "all": _uniq(eq + cr), "candidate_pool": cp}
+    return {"eq": eq3, "cr": cr3, "all": _uniq((eq3 or []) + (cr3 or [])), "candidate_pool": []}
 
 
 def extract_watchlists_tuple(feed: Dict[str, Any]) -> Tuple[List[str], List[str]]:
