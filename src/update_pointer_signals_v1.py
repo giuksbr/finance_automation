@@ -8,6 +8,24 @@ RAW_BASE = os.environ.get(
     "https://raw.githubusercontent.com/giuksbr/finance_automation/main",
 )
 
+# Prefer config.yaml storage.raw_base_url
+def _load_raw_base_from_config() -> str | None:
+    cfg_path = os.path.join(os.getcwd(), "config.yaml")
+    try:
+        import yaml  # already in requirements
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        raw = ((cfg or {}).get("storage") or {}).get("raw_base_url")
+        if isinstance(raw, str) and raw.strip():
+            return raw.rstrip("/")
+    except Exception:
+        return None
+    return None
+
+_cfg_raw = _load_raw_base_from_config()
+if _cfg_raw:
+    RAW_BASE = _cfg_raw
+
 def write_json(obj, path):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, indent=2)

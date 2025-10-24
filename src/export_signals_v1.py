@@ -14,8 +14,12 @@ Pontos chave deste arquivo:
 - Lê séries em dois formatos: (A) colunar {"c":[...], "t":[...]} e (B) lista de objetos
 - Extrai: price_now_close, price_now_close_at_utc, pct_chg_7d/10d/30d
 - Concilia indicadores (RSI, ATR, BB*) com os preços/variações
-- Mantém/propaga derivatives já existentes do último run (quando possível)
-- Escreve run_id, clock e demais campos sugeridos
+- Constrói payload v1 com "universe" opcional e "signals"
+- Atualiza pointer_signals_v1.json (raw_base configurável em update_pointer_signals_v1.py)
+
+Mudança principal desta versão (local-first):
+- _read_text(path_or_url): se `path_or_url` for URL de raw e o arquivo existir em ./public/<basename>,
+  **lê localmente** ao invés de fazer GET. Só acessa a web se o arquivo local não existir.
 
 CLI:
   python -m src.export_signals_v1 --with-universe --write-latest --update-pointer
@@ -50,47 +54,51 @@ def now_brt_iso() -> str:
 
 
 def brt_date_today() -> str:
-    return datetime.now(BRT).date().isoformat()
+    return datetime.now(BRT).strftime("%Y-%m-%d")
 
 
-def to_iso_utc(ts: Any) -> Optional[str]:
-    """Converte número epoch (s|ms), string ISO (com/sem Z), ou datetime p/ ISO-UTC."""
-    try:
-        if ts is None:
-            return None
-        if isinstance(ts, (int, float)):
-            # heurística: epoch ms se muito grande
-            if ts > 10**12:
-                ts = ts / 1000.0
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-            return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        if isinstance(ts, str):
-            s = ts.strip()
-            if s.endswith("Z"):
-                s = s.replace("Z", "+00:00")
-            dt = datetime.fromisoformat(s)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            else:
-                dt = dt.astimezone(timezone.utc)
-            return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        if hasattr(ts, "tzinfo"):
-            dt = ts.astimezone(timezone.utc)
-            return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    except Exception:
-        return None
-    return None
+def utc_timestamp_suffix() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-# ---------- IO helpers ----------
+# ---------- leitura/gravação ----------
 
 def _read_text(path_or_url: str) -> str:
-    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-        r = requests.get(path_or_url, timeout=30)
-        r.raise_for_status()
-        return r.text
-    with open(path_or_url, "r", encoding="utf-8") as f:
-        return f.read()
+    """
+    Lê texto de um caminho local ou URL. Para URLs (http/https) que pareçam apontar
+    para arquivos dentro de "public/", tenta primeiro ./public/<basename> (se existir)
+    para evitar chamadas web desnecessárias (ex.: 429). Só faz GET se não existir local.
+    """
+    # Mapeia URL -> arquivo local (./public/<basename>) quando apropriado
+    try:
+        if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+            from urllib.parse import urlparse
+            parsed = urlparse(path_or_url)
+            basename = os.path.basename(parsed.path)
+            if basename:
+                local_candidate = os.path.join("public", basename)
+                if os.path.exists(local_candidate):
+                    with open(local_candidate, "r", encoding="utf-8") as f:
+                        return f.read()
+            # Se não existir local, faz a requisição normalmente
+            r = requests.get(path_or_url, timeout=30)
+            r.raise_for_status()
+            return r.text
+        # Caminho local direto
+        with open(path_or_url, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        # Tentativa final: se o basename existir em public/, usa-o
+        try:
+            bn = os.path.basename(path_or_url)
+            if bn:
+                candidate = os.path.join("public", bn)
+                if os.path.exists(candidate):
+                    with open(candidate, "r", encoding="utf-8") as f:
+                        return f.read()
+        except Exception:
+            pass
+        raise
 
 
 def _read_json(path_or_url: str) -> Any:
@@ -108,332 +116,390 @@ def _write_json(path: str, obj: Any) -> None:
 def _normalize_sections(ohl: Dict[str, Any]) -> Dict[str, Any]:
     """Garante que ohl['eq'] e ohl['cr'] sejam dicts (não str, não None)."""
     for k in ("eq", "cr"):
-        v = ohl.get(k)
-        if isinstance(v, str):
-            try:
-                ohl[k] = json.loads(v)
-            except Exception:
-                ohl[k] = {}
-        elif v is None or not isinstance(v, dict):
+        if k not in ohl or ohl[k] is None:
             ohl[k] = {}
+        if isinstance(ohl[k], list):
+            # converte lista para dict com chave "data"
+            ohl[k] = {"data": ohl[k]}
+        if not isinstance(ohl[k], dict):
+            # se vier tipo inesperado, embrulha
+            ohl[k] = {"data": ohl[k]}
     return ohl
 
 
-# ---------- leitura unificada de séries ----------
+def _ensure_list(x: Any) -> List[Any]:
+    if x is None:
+        return []
+    if isinstance(x, list):
+        return x
+    return [x]
 
-def _series_from_node(node: Any) -> Tuple[Optional[float], Optional[str], Optional[float], Optional[float], Optional[float]]:
+
+def _extract_close_ts_from_colunar(sec: Dict[str, Any]) -> Tuple[Optional[float], Optional[str]]:
     """
-    Retorna: (last_close, last_close_at_iso_utc, pct7, pct10, pct30)
-    Aceita:
-      A) colunar: {"c":[...floats...], "t":[...epoch(s|ms)/iso...]}
-      B) lista de objetos: [{"close"| "c"| "C"| "Close":...,"time"| "timestamp"| "t"| "Date": ...}, ...]
+    Formato A (colunar): {"c":[...], "t":[...]}
+      - fecha (close) = último item de "c"
+      - timestamp UTC (string ISO ou epoch em "t" correspondente)
     """
-    # pct em cima de vetor 'c'
-    def pct(arr: List[float], days: int) -> Optional[float]:
-        if not isinstance(arr, list) or len(arr) <= days:
-            return None
-        try:
-            c_now = float(arr[-1])
-            c_then = float(arr[-1 - days])
-            return (c_now / c_then - 1.0) * 100.0
-        except Exception:
-            return None
-
-    # Formato A: colunar
-    if isinstance(node, dict) and ("c" in node) and ("t" in node) and isinstance(node["c"], list) and isinstance(node["t"], list):
-        c = node["c"]
-        t = node["t"]
-        last_close = float(c[-1]) if c else None
-        last_ts = to_iso_utc(t[-1]) if t else None
-        return last_close, last_ts, pct(c, 7), pct(c, 10), pct(c, 30)
-
-    # Formato B: lista de candles
-    if isinstance(node, list) and node:
-        def get_close(i: int) -> Optional[float]:
-            x = node[i]
-            if not isinstance(x, dict):
-                return None
-            for k in ("close", "c", "Close", "C"):
-                if k in x and x[k] is not None:
-                    try:
-                        return float(x[k])
-                    except Exception:
-                        return None
-            return None
-
-        def get_time(i: int) -> Any:
-            x = node[i]
-            if not isinstance(x, dict):
-                return None
-            for k in ("time", "timestamp", "t", "Date", "date"):
-                if k in x:
-                    return x[k]
-            return None
-
-        # precisa de pelo menos 31 pontos para pct_30
-        if len(node) >= 31:
-            try:
-                c_arr = [get_close(i) for i in range(len(node))]
-                c_arr = [v for v in c_arr if v is not None]
-                last = node[-1]
-                last_close = float(last.get("close") or last.get("c") or last.get("Close") or last.get("C"))
-                last_ts = to_iso_utc(get_time(len(node) - 1))
-                return last_close, last_ts, pct(c_arr, 7), pct(c_arr, 10), pct(c_arr, 30)
-            except Exception:
-                pass
-
-    return None, None, None, None, None
+    c = _ensure_list(sec.get("c"))
+    t = _ensure_list(sec.get("t"))
+    if not c or len(c) == 0:
+        return None, None
+    last_c = c[-1]
+    ts = None
+    if t and len(t) == len(c):
+        ts = t[-1]
+        # normaliza timestamp → ISO Z se for epoch numérico
+        if isinstance(ts, (int, float)):
+            ts = datetime.fromtimestamp(ts, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        elif isinstance(ts, str) and ts.isdigit():
+            ts2 = int(ts)
+            ts = datetime.fromtimestamp(ts2, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return last_c, ts
 
 
-# ---------- indicadores -> mapa ----------
-
-def _indicators_map(ind_any: Any) -> Dict[str, Dict[str, Any]]:
-    """Aceita indicadores agrupados ({"eq":[...], "cr":[...]}) OU flat (lista). Retorna mapa por símbolo."""
-    rows: List[Dict[str, Any]] = []
-    if isinstance(ind_any, dict):
-        if isinstance(ind_any.get("eq"), list):
-            rows.extend(ind_any.get("eq") or [])
-        if isinstance(ind_any.get("cr"), list):
-            rows.extend(ind_any.get("cr") or [])
-        # fallback: alguns dumps podem estar "flat" dentro do root
-        if not rows:
-            if isinstance(ind_any.get("rows"), list):
-                rows.extend(ind_any.get("rows") or [])
-    elif isinstance(ind_any, list):
-        rows = ind_any
-
-    out: Dict[str, Dict[str, Any]] = {}
-    for r in rows:
-        sym = r.get("symbol_canonical") or r.get("symbol") or r.get("sym")
-        if not sym:
-            continue
-
-        def g(*keys):
-            for kk in keys:
-                if kk in r and r[kk] is not None:
-                    return r[kk]
-            return None
-
-        out[sym] = {
-            "rsi14": g("RSI14", "rsi14"),
-            "atr14": g("ATR14", "atr14"),
-            "bb_ma20": g("BB_MA20", "bb_ma20"),
-            "bb_lower": g("BB_LOWER", "bb_lower"),
-            "bb_upper": g("BB_UPPER", "bb_upper"),
-        }
-    return out
-
-
-# ---------- signals (raw) -> set de símbolos ----------
-
-def _extract_watchlists(feed_any: Any) -> Tuple[List[str], List[str]]:
+def _extract_close_ts_from_list(sec: List[Dict[str, Any]]) -> Tuple[Optional[float], Optional[str]]:
     """
-    Procura watchlists de eq e cr (tanto como lista de strings quanto lista de dicts).
-    Retorna (eq_symbols, cr_symbols)
+    Formato B (lista de objetos): [{"c":..., "t":...}, ...]
+      - fecha (close) = "c" do último item
+      - timestamp UTC idem
     """
-    eq: List[str] = []
-    cr: List[str] = []
-    if isinstance(feed_any, dict):
-        for k in ("eq", "stocks", "equities"):
-            v = feed_any.get(k)
-            if isinstance(v, list):
-                for item in v:
-                    if isinstance(item, str):
-                        eq.append(item)
-                    elif isinstance(item, dict):
-                        s = item.get("symbol_canonical") or item.get("symbol") or item.get("sym")
-                        if s:
-                            eq.append(s)
-        for k in ("cr", "crypto", "coins"):
-            v = feed_any.get(k)
-            if isinstance(v, list):
-                for item in v:
-                    if isinstance(item, str):
-                        cr.append(item)
-                    elif isinstance(item, dict):
-                        s = item.get("symbol_canonical") or item.get("symbol") or item.get("sym")
-                        if s:
-                            cr.append(s)
-    # unique, preserve order
-    def uniq(lst):
-        seen = set()
-        out = []
-        for x in lst:
-            if x not in seen:
-                out.append(x)
-                seen.add(x)
-        return out
-
-    return uniq(eq), uniq(cr)
+    if not sec:
+        return None, None
+    last = sec[-1]
+    last_c = last.get("c")
+    ts = last.get("t")
+    if isinstance(ts, (int, float)):
+        ts = datetime.fromtimestamp(ts, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    elif isinstance(ts, str) and ts.isdigit():
+        ts2 = int(ts)
+        ts = datetime.fromtimestamp(ts2, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return last_c, ts
 
 
-# ---------- payload builder ----------
-
-def build_payload(with_universe: bool = True) -> Dict[str, Any]:
-    # pointer principal
-    pointer = _read_json(POINTER_PATH)
-    ohl_url = pointer.get("ohlcv_url")
-    ind_url = pointer.get("indicators_url")
-    raw_signals_url = pointer.get("signals_url")
-
-    # lê fontes
-    ohl = _normalize_sections(_read_json(ohl_url))
-    ind = _read_json(ind_url)
-    raw_signals = _read_json(raw_signals_url)
-
-    # metadados de horário
-    generated_at_brt = (
-        raw_signals.get("generated_at_brt")
-        if isinstance(raw_signals, dict) else None
-    ) or ind.get("generated_at_brt") or ohl.get("generated_at_brt") or now_brt_iso()
-
-    # clock
-    clock = {
-        "market_day_brt": brt_date_today(),
-        "is_trading_day_us": bool(pointer.get("is_trading_day_us", True)),
-        "is_trading_day_crypto": True,
-    }
-
-    # indicadores por símbolo
-    ind_map = _indicators_map(ind)
-
-    # tenta preservar derivatives do latest anterior
-    prev_latest_map: Dict[str, Dict[str, Any]] = {}
-    prev_latest_path = os.path.join(OUT_DIR, "n_signals_v1_latest.json")
-    if os.path.exists(prev_latest_path):
-        try:
-            prev = _read_json(prev_latest_path)
-            for it in prev.get("universe", []):
-                sym = it.get("symbol_canonical")
-                if sym and "derivatives" in it:
-                    prev_latest_map[sym] = it["derivatives"]
-        except Exception:
-            pass
-
-    universe: List[Dict[str, Any]] = []
-    if with_universe:
-        # partir do universo observado em OHLCV
-        # (chaves em ohl["eq"] e ohl["cr"])
-        for asset_type, sec in (("eq", ohl.get("eq", {})), ("crypto", ohl.get("cr", {}))):
-            if not isinstance(sec, dict):
-                continue
-            for sym, node in sec.items():
-                # extrai preços/variações
-                last_close, last_ts, p7, p10, p30 = _series_from_node(node)
-
-                ind_row = ind_map.get(sym, {}) if isinstance(ind_map, dict) else {}
-
-                # fontes/priceguard
-                if asset_type == "eq":
-                    sources_used = ["yahoo", "stooq", "nasdaq"]
-                else:
-                    sources_used = ["binance", "coingecko"]
-
-                priceguard = "OK" if (last_close is not None and p7 is not None) else ("PART" if last_close is not None else "FAIL")
-                window_used = node.get("window") if isinstance(node, dict) else "7d"  # best effort
-
-                item = {
-                    "symbol_canonical": sym,
-                    "asset_type": "eq" if asset_type == "eq" else "crypto",
-                    "venue": sym.split(":")[0] if ":" in sym else None,
-                    "window_used": window_used or "7d",
-
-                    "price_now_close": last_close,
-                    "price_now_close_at_utc": last_ts,
-
-                    "pct_chg_7d": p7,
-                    "pct_chg_10d": p10,
-                    "pct_chg_30d": p30,
-
-                    "rsi14": _safe_float(ind_row.get("rsi14")),
-                    "atr14": _safe_float(ind_row.get("atr14")),
-                    "bb_ma20": _safe_float(ind_row.get("bb_ma20")),
-                    "bb_lower": _safe_float(ind_row.get("bb_lower")),
-                    "bb_upper": _safe_float(ind_row.get("bb_upper")),
-
-                    "levels": [],
-                    "confidence": "low",
-
-                    "validation": {
-                        "priceguard": priceguard,
-                        "window_status": "TARGET" if (window_used or "7d") == "7d" else "SHORT_WINDOW",
-                        "sources_used": sources_used,
-                    },
-                }
-
-                # derivações previamente conhecidas (cripto)
-                if asset_type == "crypto":
-                    if sym in prev_latest_map:
-                        item["derivatives"] = prev_latest_map[sym]
-
-                universe.append(item)
-
-    payload = {
-        "schema_version": SCHEMA_VERSION,
-        "run_id": f"n_signals_v1_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
-        "generated_at_brt": generated_at_brt,
-        "clock": clock,
-        "signals": [],   # no momento derivamos tudo do universo; sinais específicos podem ser adicionados aqui
-        "universe": universe,
-    }
-    return payload
-
-
-def _safe_float(x: Any) -> Optional[float]:
+def _extract_pct_chg(arr: List[float], win: int) -> Optional[float]:
+    if not arr or len(arr) < win + 1:
+        return None
     try:
-        if x is None:
+        old = float(arr[-(win + 1)])
+        new = float(arr[-1])
+        if old == 0:
             return None
-        return float(x)
+        return (new - old) / old * 100.0
     except Exception:
         return None
 
 
-# ---------- pointer_signals_v1 ----------
+def _series_to_list(sec: Any) -> List[Dict[str, Any]]:
+    """
+    Converte formato A ou B em lista de objetos com chaves: c, t (opcional).
+    """
+    if isinstance(sec, dict) and "c" in sec and "t" in sec:
+        c = _ensure_list(sec.get("c"))
+        t = _ensure_list(sec.get("t"))
+        out = []
+        for i, cv in enumerate(c):
+            tv = t[i] if i < len(t) else None
+            if isinstance(tv, (int, float)):
+                tv = datetime.fromtimestamp(tv, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            elif isinstance(tv, str) and tv and tv.isdigit():
+                tv2 = int(tv)
+                tv = datetime.fromtimestamp(tv2, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            out.append({"c": cv, "t": tv})
+        return out
+    if isinstance(sec, list):
+        # já está em lista de objetos
+        return sec
+    # formato desconhecido: embrulha
+    return _ensure_list(sec)
 
-def update_pointer_signals_v1(latest_rel_path: str, generated_at_brt: str) -> Dict[str, Any]:
-    expires_at_utc = datetime.now(timezone.utc).replace(microsecond=0)
-    # 24h de validade
-    expires_at_utc = (expires_at_utc).isoformat().replace("+00:00", "Z")
 
-    pointer_obj = {
-        "version": "1.0",
-        "generated_at_brt": generated_at_brt,
-        "signals_url": f"{RAW_BASE}/{latest_rel_path}",
-        "expires_at_utc": expires_at_utc,
+# ---------- leitura do pointer ----------
+
+def _load_pointer(path: str = POINTER_PATH) -> Dict[str, Any]:
+    """
+    Lê pointer principal (public/pointer.json).
+    Espera algo como:
+      {
+        "ohlcv_url": ".../public/ohlcv_cache_<TS>.json",
+        "indicators_url": ".../public/indicators_<TS>.json",
+        "signals_url": ".../public/n_signals_<TS>.json",
+        # (opcional) caminhos locais adicionados pelo job:
+        "ohlcv_path": "public/ohlcv_cache_<TS>.json",
+        "indicators_path": "public/indicators_<TS>.json",
+        "signals_path": "public/n_signals_<TS>.json"
+      }
+    """
+    return _read_json(path)
+
+
+def _prefer_local_from_pointer(ptr: Dict[str, Any], key_url: str, key_path: str) -> str:
+    """
+    Dado um pointer e as chaves (URL e PATH local), retorna:
+      1) o PATH local se existir,
+      2) senão, a URL do pointer,
+      3) fallback final: se a URL apontar para /public/<bn> e existir public/<bn>, usa local.
+    """
+    # 1) path local do pointer
+    lp = ptr.get(key_path)
+    if isinstance(lp, str) and lp and os.path.exists(lp):
+        return lp
+
+    # 2) URL do pointer
+    url = ptr.get(key_url)
+    if isinstance(url, str) and url:
+        # Se houver arquivo local com o mesmo basename, usa local
+        bn = os.path.basename(url)
+        candidate = os.path.join("public", bn)
+        if os.path.exists(candidate):
+            return candidate
+        return url
+
+    # 3) fallback extremo: se tiver só basename via path
+    lp2 = ptr.get(key_path)
+    if isinstance(lp2, str):
+        bn = os.path.basename(lp2)
+        candidate = os.path.join("public", bn)
+        if os.path.exists(candidate):
+            return candidate
+
+    raise FileNotFoundError(f"Pointer sem {key_url}/{key_path} válidos ou arquivo local inexistente.")
+
+
+# ---------- construção do payload ----------
+
+def _merge_eq_cr(ohl: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Consolida estruturas para iteração única: devolve dict {"eq":{...}, "cr":{...}}
+    """
+    out = {"eq": {}, "cr": {}}
+    eq = ohl.get("eq", {}) or {}
+    cr = ohl.get("cr", {}) or {}
+    if isinstance(eq, dict):
+        out["eq"] = eq
+    if isinstance(cr, dict):
+        out["cr"] = cr
+    return out
+
+
+def _extract_metrics_from_series(sec: Any) -> Tuple[Optional[float], Optional[str], Optional[float], Optional[float], Optional[float], List[Dict[str, Any]]]:
+    """
+    Retorna:
+      close_now, close_ts_utc, chg_7d, chg_10d, chg_30d, series_list
+    """
+    series_list = _series_to_list(sec)
+    closes = [x.get("c") for x in series_list if isinstance(x, dict) and "c" in x]
+    close_now = None
+    if closes:
+        try:
+            close_now = float(closes[-1])
+        except Exception:
+            close_now = None
+
+    # extração do timestamp e pct_chg pelo formato original, se disponível
+    if isinstance(sec, dict) and "c" in sec and "t" in sec:
+        close_ts_utc = _extract_close_ts_from_colunar(sec)[1]
+        chg_7d = _extract_pct_chg(_ensure_list(sec.get("c")), 7)
+        chg_10d = _extract_pct_chg(_ensure_list(sec.get("c")), 10)
+        chg_30d = _extract_pct_chg(_ensure_list(sec.get("c")), 30)
+    elif isinstance(sec, list):
+        close_ts_utc = _extract_close_ts_from_list(sec)[1]
+        chg_7d = _extract_pct_chg([float(x.get("c")) for x in sec if isinstance(x, dict) and x.get("c") is not None], 7)
+        chg_10d = _extract_pct_chg([float(x.get("c")) for x in sec if isinstance(x, dict) and x.get("c") is not None], 10)
+        chg_30d = _extract_pct_chg([float(x.get("c")) for x in sec if isinstance(x, dict) and x.get("c") is not None], 30)
+    else:
+        close_ts_utc = None
+        chg_7d = chg_10d = chg_30d = None
+
+    return close_now, close_ts_utc, chg_7d, chg_10d, chg_30d, series_list
+
+
+def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
+    """
+    Monta o payload v1 a partir dos artefatos apontados por public/pointer.json.
+    Agora com comportamento local-first: sempre tenta abrir ./public/<arquivo> antes
+    de acessar as URLs do pointer.
+    """
+    ptr = _load_pointer()
+
+    ohl_url_or_path = _prefer_local_from_pointer(ptr, "ohlcv_url", "ohlcv_path")
+    ind_url_or_path = _prefer_local_from_pointer(ptr, "indicators_url", "indicators_path")
+    sig_url_or_path = _prefer_local_from_pointer(ptr, "signals_url", "signals_path")
+
+    ohl = _normalize_sections(_read_json(ohl_url_or_path))
+    ind = _read_json(ind_url_or_path)
+    sig = _read_json(sig_url_or_path)
+
+    merged = _merge_eq_cr(ohl)
+
+    # universe opcional
+    universe_rows: List[Dict[str, Any]] = []
+
+    signals_rows: List[Dict[str, Any]] = []
+    # Percorre eq + cr
+    for asset_type in ("eq", "cr"):
+        bucket = merged.get(asset_type, {}) or {}
+        if not isinstance(bucket, dict):
+            continue
+        for sym, sec in bucket.items():
+            if sec is None:
+                continue
+            # extrai métricas dos preços (close_now, timestamp, variações)
+            close_now, close_ts_utc, chg_7d, chg_10d, chg_30d, series_list = _extract_metrics_from_series(sec)
+
+            # indicadores: tentamos buscar por asset_type->sym ou por sym direto
+            ind_node = None
+            if isinstance(ind.get(asset_type), dict):
+                ind_node = ind[asset_type].get(sym)
+            if ind_node is None:
+                ind_node = ind.get(sym)
+
+            # campos de indicadores (podem não existir)
+            rsi14 = None
+            atr14 = None
+            atr14_pct = None
+            bb_ma20 = None
+            bb_lower = None
+            bb_upper = None
+            if isinstance(ind_node, dict):
+                rsi14 = ind_node.get("rsi14")
+                atr14 = ind_node.get("atr14")
+                atr14_pct = ind_node.get("atr14_pct")
+                bb_ma20 = ind_node.get("bb_ma20")
+                bb_lower = ind_node.get("bb_lower")
+                bb_upper = ind_node.get("bb_upper")
+
+            # funding e oi_chg_3d_pct (se vieram em sig)
+            funding = None
+            oi_chg_3d_pct = None
+            if isinstance(sig, dict):
+                sn = sig.get(sym) or sig.get(asset_type, {}).get(sym) if isinstance(sig.get(asset_type), dict) else None
+                if isinstance(sn, dict):
+                    funding = sn.get("funding")
+                    oi_chg_3d_pct = sn.get("oi_chg_3d_pct")
+
+            row = {
+                "symbol_canonical": sym,
+                "asset_type": asset_type,
+                "window_used": "7d",  # pode ser atualizado se você guardar essa info em outro lugar
+                "price_now_close": close_now,
+                "price_now_close_at_utc": close_ts_utc,
+                "pct_chg_7d": chg_7d,
+                "pct_chg_10d": chg_10d,
+                "pct_chg_30d": chg_30d,
+                "rsi14": rsi14,
+                "atr14": atr14,
+                "atr14_pct": atr14_pct,
+                "bb_ma20": bb_ma20,
+                "bb_lower": bb_lower,
+                "bb_upper": bb_upper,
+                "funding": funding,
+                "oi_chg_3d_pct": oi_chg_3d_pct,
+                # guardamos referências de origem para troubleshooting
+                "source_sections_len": len(series_list) if isinstance(series_list, list) else None,
+            }
+            signals_rows.append(row)
+
+            if with_universe:
+                universe_rows.append({
+                    "symbol": sym,
+                    "asset_type": asset_type,
+                })
+
+    payload: Dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at_utc": now_utc_iso(),
+        "generated_at_brt": now_brt_iso(),
+        "brt_date": brt_date_today(),
+        "signals": signals_rows,
     }
-    _write_json(os.path.join(OUT_DIR, "pointer_signals_v1.json"), pointer_obj)
-    return pointer_obj
+
+    if with_universe:
+        payload["universe"] = universe_rows
+
+    return payload
 
 
-# ---------- main ----------
+# ---------- escrita dos artefatos ----------
 
-def main():
-    parser = argparse.ArgumentParser(description="Exporta n_signals_v1 a partir de OHLC/INDIC/SIGNALS do pointer.")
-    parser.add_argument("--with-universe", action="store_true", help="inclui bloco universe")
-    parser.add_argument("--write-latest", action="store_true", help="também escreve n_signals_v1_latest.json")
-    parser.add_argument("--update-pointer", action="store_true", help="atualiza public/pointer_signals_v1.json")
-    args = parser.parse_args()
+def write_payload_files(payload: Dict[str, Any],
+                        *,
+                        write_latest: bool = False) -> Tuple[str, Optional[str]]:
+    """
+    Escreve:
+      - public/n_signals_v1_<TS>Z.json
+      - (opcional) public/n_signals_v1_latest.json
+    Retorna (path_ts, path_latest_or_none)
+    """
+    ts = utc_timestamp_suffix()
+    path_ts = os.path.join(OUT_DIR, f"n_signals_v1_{ts}.json")
+    _write_json(path_ts, payload)
 
+    path_latest = None
+    if write_latest:
+        path_latest = os.path.join(OUT_DIR, "n_signals_v1_latest.json")
+        _write_json(path_latest, payload)
+
+    return path_ts, path_latest
+
+
+def update_pointer_signals_v1(path_ts: str, raw_base: str = RAW_BASE) -> str:
+    """
+    Atualiza public/pointer_signals_v1.json com o novo arquivo gerado.
+      {
+        "signals_v1_url": "<RAW_BASE>/public/<basename>",
+        "updated_at_brt": "...",
+        "updated_at_utc": "...",
+        "schema_version": "1.0"
+      }
+    O `raw_base` final pode ser ajustado pelo módulo src/update_pointer_signals_v1.py
+    conforme config.yaml. Aqui usamos um default.
+    """
+    bn = os.path.basename(path_ts)
+    pointer_obj = {
+        "schema_version": SCHEMA_VERSION,
+        "updated_at_brt": now_brt_iso(),
+        "updated_at_utc": now_utc_iso(),
+        "signals_v1_url": f"{raw_base}/public/{bn}",
+    }
+    out = os.path.join(OUT_DIR, "pointer_signals_v1.json")
+    _write_json(out, pointer_obj)
+    return out
+
+
+# ---------- CLI ----------
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Exporta payload v1 e atualiza pointer_signals_v1.json")
+    p.add_argument("--with-universe", action="store_true", help="Inclui bloco universe no payload")
+    p.add_argument("--write-latest", action="store_true", help="Escreve também public/n_signals_v1_latest.json")
+    p.add_argument("--update-pointer", action="store_true", help="Atualiza public/pointer_signals_v1.json")
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
     payload = build_payload(with_universe=args.with_universe)
+    path_ts, path_latest = write_payload_files(payload, write_latest=args.write_latest)
 
-    # caminho versionado
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_ver = os.path.join(OUT_DIR, f"n_signals_v1_{ts}.json")
-    _write_json(out_ver, payload)
-    print(f"[ok] gerado {out_ver}")
-
-    # latest
-    latest_rel = "public/n_signals_v1_latest.json"
-    latest_abs = os.path.join(OUT_DIR, "n_signals_v1_latest.json")
-    if args.write_latest:
-        _write_json(latest_abs, payload)
-        print(f"[ok] gerado {latest_abs}")
-
-    # pointer
+    # Atualização do pointer v1 (se pedida)
     if args.update_pointer:
-        pointer_obj = update_pointer_signals_v1(latest_rel, payload.get("generated_at_brt"))
-        print(f"[ok] pointer atualizado: public/pointer_signals_v1.json")
-        print(f"[info] pointer signals_url: {pointer_obj['signals_url']}")
+        # Permite override via src/update_pointer_signals_v1.py que lê config.yaml
+        raw_base = RAW_BASE
+        try:
+            # import tardio para não criar dependência cíclica
+            from src.update_pointer_signals_v1 import resolve_raw_base_url  # type: ignore
+            rb = resolve_raw_base_url()
+            if isinstance(rb, str) and rb:
+                raw_base = rb
+        except Exception:
+            pass
+        pointer_path = update_pointer_signals_v1(path_ts, raw_base=raw_base)
+        print(f"pointer_signals_v1 atualizado: {pointer_path}")
+
+    print(f"signals v1 gerado: {path_ts}")
+    if path_latest:
+        print(f"signals v1 latest atualizado: {path_latest}")
 
 
 if __name__ == "__main__":

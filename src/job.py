@@ -279,6 +279,9 @@ def publish(ohl: dict, ind: dict, sigs: list[dict], base_url_raw: str):
     _write_json(out_sig, sigs)
 
     pointer = {
+        "ohlcv_path": f"public/ohlcv_cache_{ts}.json",
+        "indicators_path": f"public/indicators_{ts}.json",
+        "signals_path": f"public/n_signals_{ts}.json",
         "ohlcv_url": f"{base_url_raw.rstrip('/')}/public/ohlcv_cache_{ts}.json",
         "indicators_url": f"{base_url_raw.rstrip('/')}/public/indicators_{ts}.json",
         "signals_url": f"{base_url_raw.rstrip('/')}/public/n_signals_{ts}.json",
