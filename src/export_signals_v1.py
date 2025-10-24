@@ -11,10 +11,10 @@ Gera `public/n_signals_v1_<TS>Z.json` e opcionalmente:
 Local-first:
 - Preferência por arquivos locais quando a URL do pointer aponta para "public/<arquivo>".
 
-Correção desta versão:
-- Normaliza APENAS os nomes de CAMPOS dos indicadores (rsi14/atr14/bb_*/close)
-  preservando as chaves de SÍMBOLOS (ex.: "NYSEARCA:VUG") para evitar mismatch.
+Melhorias desta versão:
+- Normaliza APENAS os nomes de campos dos indicadores (rsi14/atr14/bb_*/close), preservando os símbolos.
 - Fallback: se OHLCV não tiver série, usa `indicators.close` como `price_now_close`.
+- Preenche automaticamente `atr14_pct` = 100 * atr14 / price_now_close quando `atr14_pct` vier ausente.
 """
 
 import argparse
@@ -53,12 +53,9 @@ def utc_timestamp_suffix() -> str:
 # ---------- leitura/gravação ----------
 
 def _read_text(path_or_url: str) -> str:
-    """
-    Lê texto de caminho local ou URL. Para URLs de raw que apontem para /public/<basename>,
-    tenta primeiro ./public/<basename>. Só faz GET se o arquivo local não existir.
-    """
+    """Lê texto de caminho local ou URL; para URLs raw/public tenta primeiro ./public/<basename>."""
     try:
-        if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+        if path_or_url.startswith(("http://", "https://")):
             from urllib.parse import urlparse
             parsed = urlparse(path_or_url)
             basename = os.path.basename(parsed.path)
@@ -175,23 +172,18 @@ FIELD_ALIASES = {
     "bb_lower": {"BB_LOWER", "bb_lower"},
     "bb_upper": {"BB_UPPER", "bb_upper"},
     "close": {"CLOSE", "close"},
-    "atr14_pct": {"ATR14_PCT", "atr14_pct"},  # se existir
+    "atr14_pct": {"ATR14_PCT", "atr14_pct"},
 }
 
 def _normalize_indicator_fields(node: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Recebe o dict de UM símbolo e retorna um novo dict com campos minúsculos.
-    Não altera o nome do símbolo; apenas os nomes dos campos internos.
-    """
+    """Normaliza APENAS os nomes de campos de um símbolo; preserva o símbolo em si."""
     out: Dict[str, Any] = {}
     if not isinstance(node, dict):
         return out
-
-    # primeiro, copia todos com lower-case de chave
+    # coloca tudo em lowercase
     for k, v in node.items():
         out[str(k).lower()] = v
-
-    # garante aliases explícitos
+    # aplica aliases explícitos
     for target, aliases in FIELD_ALIASES.items():
         if target not in out:
             for a in aliases:
@@ -202,29 +194,19 @@ def _normalize_indicator_fields(node: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _normalize_indicators(ind: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Normaliza APENAS os campos internos, preservando chaves 'eq'/'cr' e símbolos.
-    Estruturas aceitas:
-      - ind["eq"][SYM], ind["cr"][SYM]
-      - ind[SYM] (top-level)
-    """
+    """Normaliza APENAS os campos internos; preserva 'eq'/'cr' e chaves de símbolos."""
     out: Dict[str, Any] = {}
-
-    # mantém 'eq'/'cr' se existirem
     for bucket in ("eq", "cr"):
         node = ind.get(bucket)
         if isinstance(node, dict):
             out[bucket] = {}
             for sym, sym_node in node.items():
                 out[bucket][sym] = _normalize_indicator_fields(sym_node)
-
-    # símbolos no topo (fora de eq/cr)
     for k, v in ind.items():
         if k in ("eq", "cr"):
             continue
         if isinstance(v, dict):
             out[k] = _normalize_indicator_fields(v)
-
     return out
 
 
@@ -368,6 +350,13 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
             if close_now is None and close_from_ind is not None:
                 try:
                     close_now = float(close_from_ind)
+                except Exception:
+                    pass
+
+            # 4) completa atr14_pct se faltar e for possível calcular
+            if atr14_pct is None and atr14 is not None and close_now not in (None, 0):
+                try:
+                    atr14_pct = float(atr14) / float(close_now) * 100.0
                 except Exception:
                     pass
 
