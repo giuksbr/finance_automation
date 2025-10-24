@@ -8,11 +8,13 @@ Gera `public/n_signals_v1_<TS>Z.json` e opcionalmente:
 - `public/n_signals_v1_latest.json`
 - atualiza `public/pointer_signals_v1.json`
 
-Mudanças desta versão:
+Local-first:
 - Preferência por arquivos locais quando a URL do pointer aponta para "public/<arquivo>".
-- Normalização dos INDICADORES: aceita chaves maiúsculas (RSI14/ATR14/BB_*/CLOSE) e as
-  mapeia para minúsculas (rsi14/atr14/bb_*/close).
-- Fallback para `price_now_close` usando `indicators.close` quando a série OHLCV não estiver disponível.
+
+Correção desta versão:
+- Normaliza APENAS os nomes de CAMPOS dos indicadores (rsi14/atr14/bb_*/close)
+  preservando as chaves de SÍMBOLOS (ex.: "NYSEARCA:VUG") para evitar mismatch.
+- Fallback: se OHLCV não tiver série, usa `indicators.close` como `price_now_close`.
 """
 
 import argparse
@@ -164,62 +166,66 @@ def _merge_eq_cr(ohl: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-# ---------- indicadores: normalização ----------
+# ---------- indicadores: normalização (somente campos, preserva símbolos) ----------
 
-def _lower_keys_recursive(obj: Any) -> Any:
-    if isinstance(obj, dict):
-        return {str(k).lower(): _lower_keys_recursive(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [ _lower_keys_recursive(x) for x in obj ]
-    return obj
+FIELD_ALIASES = {
+    "rsi14": {"RSI14", "rsi14"},
+    "atr14": {"ATR14", "atr14"},
+    "bb_ma20": {"BB_MA20", "bb_ma20"},
+    "bb_lower": {"BB_LOWER", "bb_lower"},
+    "bb_upper": {"BB_UPPER", "bb_upper"},
+    "close": {"CLOSE", "close"},
+    "atr14_pct": {"ATR14_PCT", "atr14_pct"},  # se existir
+}
+
+def _normalize_indicator_fields(node: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recebe o dict de UM símbolo e retorna um novo dict com campos minúsculos.
+    Não altera o nome do símbolo; apenas os nomes dos campos internos.
+    """
+    out: Dict[str, Any] = {}
+    if not isinstance(node, dict):
+        return out
+
+    # primeiro, copia todos com lower-case de chave
+    for k, v in node.items():
+        out[str(k).lower()] = v
+
+    # garante aliases explícitos
+    for target, aliases in FIELD_ALIASES.items():
+        if target not in out:
+            for a in aliases:
+                if a.lower() in out:
+                    out[target] = out[a.lower()]
+                    break
+    return out
 
 
 def _normalize_indicators(ind: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Normaliza chaves para lowercase e cria aliases esperados:
-      rsi14 ← rsi14 | RSI14
-      atr14 ← atr14 | ATR14
-      bb_ma20 ← bb_ma20 | BB_MA20
-      bb_lower ← bb_lower | BB_LOWER
-      bb_upper ← bb_upper | BB_UPPER
-      close ← close | CLOSE
-    Estrutura aceita:
-      - ind["eq"][sym], ind["cr"][sym] ou ind[sym]
+    Normaliza APENAS os campos internos, preservando chaves 'eq'/'cr' e símbolos.
+    Estruturas aceitas:
+      - ind["eq"][SYM], ind["cr"][SYM]
+      - ind[SYM] (top-level)
     """
-    ind_l = _lower_keys_recursive(ind or {})
+    out: Dict[str, Any] = {}
 
-    def _apply_aliases(d: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(d, dict):
-            return {}
-        out = dict(d)
-        # aliases
-        if "rsi14" not in out and "rsi14" in d:
-            out["rsi14"] = d["rsi14"]
-        if "atr14" not in out and "atr14" in d:
-            out["atr14"] = d["atr14"]
-        if "bb_ma20" not in out and "bb_ma20" in d:
-            out["bb_ma20"] = d["bb_ma20"]
-        if "bb_lower" not in out and "bb_lower" in d:
-            out["bb_lower"] = d["bb_lower"]
-        if "bb_upper" not in out and "bb_upper" in d:
-            out["bb_upper"] = d["bb_upper"]
-        if "close" not in out and "close" in d:
-            out["close"] = d["close"]
-        return out
-
-    # aplica aliases em profundidade 2 (eq/cr/sym) e 1 (sym)
-    for k in ("eq", "cr"):
-        if isinstance(ind_l.get(k), dict):
-            for sym, node in list(ind_l[k].items()):
-                if isinstance(node, dict):
-                    ind_l[k][sym] = _apply_aliases(node)
-    for sym, node in list(ind_l.items()):
-        if sym in ("eq", "cr"):
-            continue
+    # mantém 'eq'/'cr' se existirem
+    for bucket in ("eq", "cr"):
+        node = ind.get(bucket)
         if isinstance(node, dict):
-            ind_l[sym] = _apply_aliases(node)
+            out[bucket] = {}
+            for sym, sym_node in node.items():
+                out[bucket][sym] = _normalize_indicator_fields(sym_node)
 
-    return ind_l
+    # símbolos no topo (fora de eq/cr)
+    for k, v in ind.items():
+        if k in ("eq", "cr"):
+            continue
+        if isinstance(v, dict):
+            out[k] = _normalize_indicator_fields(v)
+
+    return out
 
 
 # ---------- pointer & escolha local-first ----------
@@ -321,8 +327,8 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
     ind_raw = _read_json(ind_url_or_path)
     sig = _read_json(sig_url_or_path)
 
-    # normaliza indicadores (lowercase + aliases)
-    ind = _normalize_indicators(ind_raw)
+    # normaliza SOMENTE campos de indicadores; preserva símbolos
+    ind: Dict[str, Any] = _normalize_indicators(ind_raw)
 
     merged = _merge_eq_cr(ohl)
 
@@ -352,7 +358,7 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
             if isinstance(ind_node, dict):
                 rsi14 = ind_node.get("rsi14")
                 atr14 = ind_node.get("atr14")
-                atr14_pct = ind_node.get("atr14_pct")  # pode não existir no seu arquivo
+                atr14_pct = ind_node.get("atr14_pct")
                 bb_ma20 = ind_node.get("bb_ma20")
                 bb_lower = ind_node.get("bb_lower")
                 bb_upper = ind_node.get("bb_upper")
