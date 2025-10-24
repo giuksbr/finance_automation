@@ -2,18 +2,23 @@
 # -*- coding: utf-8 -*-
 
 """
-feed.py — leitura do feed JSON com fallback local + fallback de WATCHLISTS.
+feed.py — leitura do feed JSON com fallback local + fallback de WATCHLISTS e
+extração robusta das listas (eq/cr) a partir de múltiplos formatos.
 
-Fluxo:
-1) fetch_feed(url): tenta baixar em tempo real; se falhar (ex.: 429), usa cópia local last-good.
-   - Sucesso remoto → salva/atualiza cópia local.
-
-2) extract_watchlists(feed): tenta extrair eq/cr do feed.
-   - Se eq/cr vierem vazios → tenta carregar de um arquivo local (watchlists_local.json).
-     • Ordem de resolução do caminho:
-       a) env WATCHLISTS_LOCAL
-       b) config.yaml: local_watchlists_path
-       c) padrão: ./out/watchlists_local.json
+Novidades:
+- Suporte a vários esquemas de watchlists:
+    .watchlists.eq / .watchlists.cr
+    .watchlists.whitelist (lista mista)
+    .universe.eq / .universe.cr
+    .symbols.eq / .symbols.cr
+    .eq / .cr (top-level)
+    .whitelist (lista mista)
+- Suporte a caminho configurável em config.yaml:
+    feed_watchlists_path:
+      eq: "universe.eq"       # caminho para a lista de eq
+      cr: "universe.cr"       # caminho para a lista de cr
+  (ou por variável de ambiente FEED_WATCHLISTS_EQ_PATH / FEED_WATCHLISTS_CR_PATH)
+- Logs claros dizendo de onde veio cada lista.
 """
 
 from __future__ import annotations
@@ -34,17 +39,11 @@ except Exception:
     yaml = None  # yaml é opcional
 
 
-# ---------- Config & Consts ----------
-
 _DEFAULT_LOCAL_FEED = os.environ.get("FEED_LOCAL_PATH", os.path.join("out", "last_good_feed.json"))
 _DEFAULT_TIMEOUT = float(os.environ.get("FEED_TIMEOUT_S", "6"))
-_DEFAULT_RETRIES = int(os.environ.get("FEED_MAX_RETRIES", "2"))  # tentativas extras (além da primeira)
-_USER_AGENT = os.environ.get(
-    "FEED_USER_AGENT",
-    "finance_automation/1.0 (+local-first); Python requests"
-)
+_DEFAULT_RETRIES = int(os.environ.get("FEED_MAX_RETRIES", "2"))
+_USER_AGENT = os.environ.get("FEED_USER_AGENT", "finance_automation/1.0 (+local-first); Python requests")
 
-# watchlists locais (fallback)
 _DEFAULT_LOCAL_WL = os.environ.get("WATCHLISTS_LOCAL", os.path.join("out", "watchlists_local.json"))
 
 LOG = logging.getLogger("feed")
@@ -56,7 +55,7 @@ if not LOG.handlers:
 LOG.setLevel(logging.INFO)
 
 
-# ---------- Utils ----------
+# ---------------- Utils ----------------
 
 def _ensure_dir(path: str) -> None:
     d = os.path.dirname(os.path.abspath(path))
@@ -65,7 +64,6 @@ def _ensure_dir(path: str) -> None:
 
 
 def _load_config_yaml() -> Dict[str, Any]:
-    """Lê config.yaml se existir na raiz do repo; {} se ausente."""
     if yaml is None:
         return {}
     for p in ("config.yaml", "./config.yaml"):
@@ -102,7 +100,6 @@ def _load_json(path: str) -> Dict[str, Any]:
 
 
 def _http_get_json(url: str, timeout: float, max_retries: int) -> Dict[str, Any]:
-    """GET sem cache, com tratamento de 429 (Retry-After) e backoff leve."""
     sess = requests.Session()
     headers = {"User-Agent": _USER_AGENT, "Accept": "application/json"}
     attempt = 0
@@ -143,7 +140,35 @@ def _http_get_json(url: str, timeout: float, max_retries: int) -> Dict[str, Any]
     raise last_exc
 
 
-# ---------- API pública: feed ----------
+def _uniq(seq: List[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for s in seq:
+        if not s:
+            continue
+        s2 = str(s).strip()
+        if s2 and s2 not in seen:
+            seen.add(s2)
+            out.append(s2)
+    return out
+
+
+def _get_by_path(obj: Any, path: str) -> Any:
+    """
+    Caminho pontuado simples: "a.b.c".
+    Retorna None se em algum passo não existir.
+    """
+    cur = obj
+    for part in path.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+        if cur is None:
+            return None
+    return cur
+
+
+# ---------------- API: feed ----------------
 
 def fetch_feed(url: str,
                *,
@@ -183,60 +208,108 @@ def fetch_feed(url: str,
     raise RuntimeError(msg)
 
 
-# ---------- Helpers de watchlists ----------
+# ---------------- Extração de watchlists ----------------
 
-def _uniq(seq: List[str]) -> List[str]:
-    seen = set()
-    out: List[str] = []
-    for s in seq:
-        if not s:
-            continue
+def _parse_mixed_list(mixed: List[str]) -> Tuple[List[str], List[str]]:
+    """Heurística: separa provável cr vs eq pela presença de prefixos de exchange cripto."""
+    if not mixed:
+        return [], []
+    cr_prefixes = {"BINANCE", "CRYPTO", "GATE", "KRAKEN", "COINBASE", "BYBIT", "OKX"}
+    eq_guess, cr_guess = [], []
+    for s in mixed:
         s2 = str(s).strip()
-        if s2 and s2 not in seen:
-            seen.add(s2)
-            out.append(s2)
-    return out
+        if ":" in s2:
+            prefix = s2.split(":", 1)[0].upper()
+            if prefix in cr_prefixes:
+                cr_guess.append(s2)
+            else:
+                eq_guess.append(s2)
+        else:
+            eq_guess.append(s2)
+    return _uniq(eq_guess), _uniq(cr_guess)
 
 
-def _extract_eq_cr_from_feed(feed: Dict[str, Any]) -> Dict[str, List[str]]:
-    out = {"eq": [], "cr": []}
-    if not isinstance(feed, dict):
-        return out
+def _try_via_config(feed: Dict[str, Any]) -> Tuple[List[str], List[str], str]:
+    cfg = _load_config_yaml() or {}
+    eq_path = os.environ.get("FEED_WATCHLISTS_EQ_PATH") or (cfg.get("feed_watchlists_path", {}) or {}).get("eq")
+    cr_path = os.environ.get("FEED_WATCHLISTS_CR_PATH") or (cfg.get("feed_watchlists_path", {}) or {}).get("cr")
+    if not eq_path and not cr_path:
+        return [], [], ""
 
-    wl_node = feed.get("watchlists", {})
-    if isinstance(wl_node, dict):
-        # caso preferido
-        eq = wl_node.get("eq", []) or []
-        cr = wl_node.get("cr", []) or []
-        if eq or cr:
-            out["eq"] = _uniq([str(x) for x in eq])
-            out["cr"] = _uniq([str(x) for x in cr])
-            return out
+    eq = _get_by_path(feed, eq_path) if eq_path else None
+    cr = _get_by_path(feed, cr_path) if cr_path else None
 
-        # whitelist misto (heurística simples)
-        mixed = wl_node.get("whitelist", []) or []
-        if mixed:
-            eq_guess, cr_guess = [], []
-            for s in mixed:
-                s2 = str(s).strip()
-                if ":" in s2:
-                    prefix = s2.split(":", 1)[0].upper()
-                    if prefix in {"BINANCE", "CRYPTO", "GATE", "KRAKEN", "COINBASE"}:
-                        cr_guess.append(s2)
-                    else:
-                        eq_guess.append(s2)
-                else:
-                    eq_guess.append(s2)
-            out["eq"] = _uniq(eq_guess)
-            out["cr"] = _uniq(cr_guess)
-            return out
+    eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
+    cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
 
-    # formatos legados no topo
-    if isinstance(feed.get("whitelist"), list):
-        out["eq"] = _uniq([str(x) for x in (feed.get("whitelist") or [])])
+    if eq_list or cr_list:
+        LOG.info(f"Watchlists extraídas via config.yaml (eq_path='{eq_path}' cr_path='{cr_path}')")
+        return eq_list, cr_list, "config"
 
-    # candidate_pool pode estar em watchlists ou no topo — não usado aqui para eq/cr
-    return out
+    return [], [], ""
+
+
+def _extract_watchlists_from_known_shapes(feed: Dict[str, Any]) -> Tuple[List[str], List[str], str]:
+    """
+    Tenta diversos formatos conhecidos, retornando (eq, cr, origem).
+    """
+    # 1) .watchlists.eq/cr
+    wl = feed.get("watchlists")
+    if isinstance(wl, dict):
+        eq = wl.get("eq") or []
+        cr = wl.get("cr") or []
+        if isinstance(eq, list) or isinstance(cr, list):
+            eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
+            cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+            if eq_list or cr_list:
+                return eq_list, cr_list, "watchlists.eq/cr"
+
+        # 1.1) .watchlists.whitelist (misto)
+        mix = wl.get("whitelist") or []
+        if isinstance(mix, list) and mix:
+            eq_list, cr_list = _parse_mixed_list([str(x) for x in mix])
+            if eq_list or cr_list:
+                return eq_list, cr_list, "watchlists.whitelist"
+
+    # 2) .universe.eq/cr
+    u = feed.get("universe")
+    if isinstance(u, dict):
+        eq = u.get("eq") or []
+        cr = u.get("cr") or []
+        if isinstance(eq, list) or isinstance(cr, list):
+            eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
+            cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+            if eq_list or cr_list:
+                return eq_list, cr_list, "universe.eq/cr"
+
+    # 3) .symbols.eq/cr
+    s = feed.get("symbols")
+    if isinstance(s, dict):
+        eq = s.get("eq") or []
+        cr = s.get("cr") or []
+        if isinstance(eq, list) or isinstance(cr, list):
+            eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
+            cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+            if eq_list or cr_list:
+                return eq_list, cr_list, "symbols.eq/cr"
+
+    # 4) .eq / .cr (top-level)
+    eq = feed.get("eq")
+    cr = feed.get("cr")
+    if isinstance(eq, list) or isinstance(cr, list):
+        eq_list = _uniq([str(x) for x in (eq or [])]) if isinstance(eq, list) else []
+        cr_list = _uniq([str(x) for x in (cr or [])]) if isinstance(cr, list) else []
+        if eq_list or cr_list:
+            return eq_list, cr_list, "top.eq/cr"
+
+    # 5) .whitelist (misto no topo)
+    wl2 = feed.get("whitelist")
+    if isinstance(wl2, list) and wl2:
+        eq_list, cr_list = _parse_mixed_list([str(x) for x in wl2])
+        if eq_list or cr_list:
+            return eq_list, cr_list, "top.whitelist"
+
+    return [], [], ""
 
 
 def _load_local_watchlists(path: str) -> Dict[str, List[str]]:
@@ -247,48 +320,45 @@ def _load_local_watchlists(path: str) -> Dict[str, List[str]]:
     return {"eq": _uniq([str(x) for x in eq]), "cr": _uniq([str(x) for x in cr])}
 
 
-# ---------- API pública: watchlists ----------
-
 def extract_watchlists(feed: Dict[str, Any]) -> Dict[str, List[str]]:
     """
     Retorna:
-      {
-        "eq": [...],
-        "cr": [...],
-        "all": [...],
-        "candidate_pool": [...]
-      }
+      {"eq":[...], "cr":[...], "all":[...], "candidate_pool":[...]}
     Estratégia:
-      1) tenta extrair do feed;
-      2) se eq/cr vazios → tenta arquivo local (watchlists_local.json).
+      1) tenta via config (caminhos explícitos);
+      2) tenta formatos conhecidos;
+      3) se ainda vazio → fallback local (out/watchlists_local.json).
     """
-    # 1) do feed
-    eq_cr = _extract_eq_cr_from_feed(feed)
-    eq = eq_cr.get("eq", []) or []
-    cr = eq_cr.get("cr", []) or []
+    # 1) via config
+    eq, cr, origin = _try_via_config(feed)
+    if not (eq or cr):
+        # 2) formatos conhecidos
+        eq, cr, origin = _extract_watchlists_from_known_shapes(feed)
 
-    # candidato pool (se existir no feed)
     cp: List[str] = []
-    wl_node = feed.get("watchlists", {}) if isinstance(feed, dict) else {}
-    if isinstance(wl_node, dict) and isinstance(wl_node.get("candidate_pool"), list):
-        cp = _uniq([str(x) for x in (wl_node.get("candidate_pool") or [])])
-    elif isinstance(feed.get("candidate_pool"), list):
-        cp = _uniq([str(x) for x in (feed.get("candidate_pool") or [])])
+    # candidate_pool em caminhos usuais
+    for path in ("watchlists.candidate_pool", "candidate_pool", "universe.candidate_pool"):
+        node = _get_by_path(feed, path)
+        if isinstance(node, list) and node:
+            cp = _uniq([str(x) for x in node])
+            break
 
-    # 2) fallback local se eq/cr vieram vazios
-    if not eq and not cr:
-        local_wl = _get_local_wl_path(_DEFAULT_LOCAL_WL)
-        if os.path.exists(local_wl):
-            try:
-                wl_local = _load_local_watchlists(local_wl)
-                eq = wl_local.get("eq", []) or []
-                cr = wl_local.get("cr", []) or []
-                LOG.info(f"Watchlists do feed ausentes/vazias — usando fallback local: {local_wl} (eq={len(eq)} cr={len(cr)})")
-            except Exception as e:
-                LOG.warning(f"Falha ao ler fallback local de watchlists '{local_wl}': {e}")
+    if eq or cr:
+        LOG.info(f"Watchlists extraídas do feed ({origin}) — eq={len(eq)} cr={len(cr)}")
+        return {"eq": eq, "cr": cr, "all": _uniq(eq + cr), "candidate_pool": cp}
 
-    all_syms = _uniq(eq + cr)
-    return {"eq": eq, "cr": cr, "all": all_syms, "candidate_pool": cp}
+    # 3) fallback local
+    local_wl = _get_local_wl_path(_DEFAULT_LOCAL_WL)
+    if os.path.exists(local_wl):
+        try:
+            wl_local = _load_local_watchlists(local_wl)
+            eq = wl_local.get("eq", []) or []
+            cr = wl_local.get("cr", []) or []
+            LOG.info(f"Watchlists do feed ausentes/vazias — usando fallback local: {local_wl} (eq={len(eq)} cr={len(cr)})")
+        except Exception as e:
+            LOG.warning(f"Falha ao ler fallback local de watchlists '{local_wl}': {e}")
+
+    return {"eq": eq, "cr": cr, "all": _uniq(eq + cr), "candidate_pool": cp}
 
 
 def extract_watchlists_tuple(feed: Dict[str, Any]) -> Tuple[List[str], List[str]]:
