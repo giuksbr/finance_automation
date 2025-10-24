@@ -1,49 +1,92 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-log() { echo "[$(ts)] $*"; }
-
 BRANCH="${BRANCH:-main}"
 REMOTE="${REMOTE:-origin}"
-PY="${PY:-python}"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+BRT_NOW="$(TZ=America/Sao_Paulo date +"%Y-%m-%d %H:%M:%S")"
+UTC_NOW="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-log "Iniciando pipeline (branch=$BRANCH remote=$REMOTE)"
+log() {
+  printf "[%s] %s\n" "$UTC_NOW" "$*" >&2
+}
 
-# 1) Geração base (feed em tempo real; resto local)
-log "1/5 Rodando src.job (feed em tempo real; sem cache)"
-${PY} -m src.job
+# ------ 0) Seed automático do fallback local do feed, se necessário ------
+LOCAL_FEED="${FEED_LOCAL_PATH:-out/last_good_feed.json}"
+need_seed=0
 
-# 2) Export n_signals_v1 (local-first: lê pointer local e arquivos gerados)
-log "2/5 Exportando n_signals_v1 (universe + latest + pointer_signals_v1)"
-${PY} -m src.export_signals_v1 --with-universe --write-latest --update-pointer
-
-# 3) Validações locais — sem bater na web
-log "3/5 Validação local dos artefatos"
-LATEST_SIG="$(ls -t public/n_signals_v1_*.json | head -1)"
-jq -r '"schema=\(.schema_version) generated=\(.generated_at_brt) signals=\((.signals//[])|length) universe=\((.universe//[])|length)"' "${LATEST_SIG}" || true
-
-# 4) Preparar commit (único)
-log "4/5 Preparando commit de publicação"
-git add public/ohlcv_cache_*.json || true
-git add public/indicators_*.json || true
-git add public/n_signals_*.json || true
-git add public/pointer.json public/pointer_signals_v1.json || true
-
-if ! git diff --cached --quiet; then
-  git commit -m "publish: atualiza ohlcv/indicators/signals + pointers"
-  log "Commit criado"
+if [[ ! -f "$LOCAL_FEED" ]]; then
+  need_seed=1
 else
-  log "Nada para publicar (sem alterações)"
+  # se existir jq, valida presença de watchlists; se não, assume que precisa
+  if command -v jq >/dev/null 2>&1; then
+    if ! jq -e '.watchlists // empty' "$LOCAL_FEED" >/dev/null 2>&1; then
+      need_seed=1
+    fi
+  else
+    # sem jq, se está muito pequeno (<200 bytes) assumimos inválido
+    size=$(wc -c < "$LOCAL_FEED" 2>/dev/null || echo 0)
+    if [[ "$size" -lt 200 ]]; then
+      need_seed=1
+    fi
+  fi
 fi
 
-# 5) Push único
-if git rev-parse --abbrev-ref HEAD >/dev/null 2>&1; then
-  log "5/5 Enviando para ${REMOTE} ${BRANCH}"
-  git push "${REMOTE}" "HEAD:${BRANCH}"
-  log "Pipeline concluído."
+if [[ "$need_seed" -eq 1 ]]; then
+  log "Seed do feed local necessário — executando scripts/seed_local_feed.sh"
+  bash scripts/seed_local_feed.sh || true
+fi
+
+echo
+log "Iniciando pipeline (branch=$BRANCH remote=$REMOTE)"
+
+# ------ 1) Job principal (gera OHLCV/INDIC/SIGNALS básicos + pointer.json) ------
+log "1/5 Rodando src.job (feed em tempo real; fallback local se 429)"
+python -m src.job || {
+  echo "[${UTC_NOW}] ERRO: src.job falhou — abortando pipeline." >&2
+  exit 1
+}
+
+echo
+# ------ 2) Export v1 (local-first ao ler pointer) ------
+log "2/5 Exportando n_signals_v1 (universe + latest + pointer_signals_v1)"
+python -m src.export_signals_v1 --with-universe --write-latest --update-pointer || {
+  echo "[${UTC_NOW}] ERRO: export_signals_v1 falhou — abortando pipeline." >&2
+  exit 1
+}
+
+echo
+# ------ 3) CSV final (se existir o script) ------
+if [[ -f "scripts/build_universe_csv.py" ]]; then
+  log "3/5 (opcional) CSV: scripts/build_universe_csv.py"
+  python scripts/build_universe_csv.py || {
+    echo "[${UTC_NOW}] AVISO: falha ao gerar CSV — seguindo mesmo assim." >&2
+  }
 else
-  log "[aviso] repositório Git não inicializado; pulando push"
+  log "3/5 CSV: pular (script ausente)"
+fi
+
+echo
+# ------ 4) Validações locais rápidas ------
+log "4/5 Validações locais rápidas"
+if command -v jq >/dev/null 2>&1; then
+  if [[ -f "public/n_signals_v1_latest.json" ]]; then
+    jq -r '"signals_v1_latest: signals=" + ( .signals|length|tostring ) + ", universe=" + ( .universe|length|tostring ) + ", brt=" + .generated_at_brt' public/n_signals_v1_latest.json || true
+  fi
+  if [[ -f "public/pointer.json" ]]; then
+    jq -r '"pointer: ohlcv=" + .ohlcv_path + ", indicators=" + .indicators_path + ", signals=" + .signals_path' public/pointer.json || true
+  fi
+else
+  echo "[${UTC_NOW}] jq não encontrado — validações locais mínimas."
+fi
+
+echo
+# ------ 5) Commit/push único ------
+log "5/5 Commit e push únicos"
+git add -A
+if ! git diff --cached --quiet; then
+  git commit -m "publish(local-first): $(date -u +"%Y%m%dT%H%M%SZ")"
+  git push "${REMOTE}" "${BRANCH}"
+  log "Publicação concluída em $BRANCH ($REMOTE)."
+else
+  log "Nada para publicar (sem mudanças)."
 fi
