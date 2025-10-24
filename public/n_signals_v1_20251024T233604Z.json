@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "generated_at_utc": "2025-10-24T23:36:04Z",
+  "generated_at_brt": "2025-10-24T20:36:04-03:00",
+  "brt_date": "2025-10-24",
+  "signals": [
+    {
+      "symbol_canonical": "NYSEARCA:VUG",
+      "asset_type": "eq",
+      "window_used": "7d",
+      "price_now_close": null,
+      "price_now_close_at_utc": null,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "rsi14": null,
+      "atr14": null,
+      "atr14_pct": null,
+      "bb_ma20": null,
+      "bb_lower": null,
+      "bb_upper": null,
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "source_sections_len": 1
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IVW",
+      "asset_type": "eq",
+      "window_used": "7d",
+      "price_now_close": null,
+      "price_now_close_at_utc": null,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "rsi14": null,
+      "atr14": null,
+      "atr14_pct": null,
+      "bb_ma20": null,
+      "bb_lower": null,
+      "bb_upper": null,
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "source_sections_len": 1
+    },
+    {
+      "symbol_canonical": "NYSEARCA:IUSG",
+      "asset_type": "eq",
+      "window_used": "7d",
+      "price_now_close": null,
+      "price_now_close_at_utc": null,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "rsi14": null,
+      "atr14": null,
+      "atr14_pct": null,
+      "bb_ma20": null,
+      "bb_lower": null,
+      "bb_upper": null,
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "source_sections_len": 1
+    },
+    {
+      "symbol_canonical": "BINANCE:BTCUSDT",
+      "asset_type": "cr",
+      "window_used": "7d",
+      "price_now_close": null,
+      "price_now_close_at_utc": null,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "rsi14": null,
+      "atr14": null,
+      "atr14_pct": null,
+      "bb_ma20": null,
+      "bb_lower": null,
+      "bb_upper": null,
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "source_sections_len": 1
+    },
+    {
+      "symbol_canonical": "BINANCE:ETHUSDT",
+      "asset_type": "cr",
+      "window_used": "7d",
+      "price_now_close": null,
+      "price_now_close_at_utc": null,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "rsi14": null,
+      "atr14": null,
+      "atr14_pct": null,
+      "bb_ma20": null,
+      "bb_lower": null,
+      "bb_upper": null,
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "source_sections_len": 1
+    },
+    {
+      "symbol_canonical": "BINANCE:SOLUSDT",
+      "asset_type": "cr",
+      "window_used": "7d",
+      "price_now_close": null,
+      "price_now_close_at_utc": null,
+      "pct_chg_7d": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "rsi14": null,
+      "atr14": null,
+      "atr14_pct": null,
+      "bb_ma20": null,
+      "bb_lower": null,
+      "bb_upper": null,
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "source_sections_len": 1
+    }
+  ],
+  "universe": [
+    {
+      "symbol": "NYSEARCA:VUG",
+      "asset_type": "eq"
+    },
+    {
+      "symbol": "NYSEARCA:IVW",
+      "asset_type": "eq"
+    },
+    {
+      "symbol": "NYSEARCA:IUSG",
+      "asset_type": "eq"
+    },
+    {
+      "symbol": "BINANCE:BTCUSDT",
+      "asset_type": "cr"
+    },
+    {
+      "symbol": "BINANCE:ETHUSDT",
+      "asset_type": "cr"
+    },
+    {
+      "symbol": "BINANCE:SOLUSDT",
+      "asset_type": "cr"
+    }
+  ]
+}
