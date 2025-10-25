@@ -1,1578 +1,1578 @@
 {
-  "schema_version": "1.0",
-  "generated_at_utc": "2025-10-25T11:23:57Z",
-  "generated_at_brt": "2025-10-25T08:23:57-03:00",
   "brt_date": "2025-10-25",
+  "generated_at_brt": "2025-10-25T08:23:57-03:00",
+  "generated_at_utc": "2025-10-25T11:23:57Z",
+  "schema_version": "1.0",
   "signals": [
     {
-      "symbol_canonical": "NYSEARCA:VUG",
       "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 489.6199951171875,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
-      "pct_chg_10d": null,
-      "pct_chg_30d": null,
-      "rsi14": 61.29,
       "atr14": 3.680648,
       "atr14_pct": 0.7517356392111927,
-      "bb_ma20": 481.422998,
       "bb_lower": 472.574472,
+      "bb_ma20": 481.422998,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:IVW",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 122.66999816894531,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 60.82,
+      "pct_chg_7d": null,
+      "price_now_close": 489.6199951171875,
+      "price_now_close_at_utc": null,
+      "rsi14": 61.29,
+      "symbol_canonical": "NYSEARCA:VUG",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 0.866686,
       "atr14_pct": 0.7065183116790875,
-      "bb_ma20": 120.892501,
       "bb_lower": 119.003557,
+      "bb_ma20": 120.892501,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:IUSG",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 167.38999938964844,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 61.13,
+      "pct_chg_7d": null,
+      "price_now_close": 122.66999816894531,
+      "price_now_close_at_utc": null,
+      "rsi14": 60.82,
+      "symbol_canonical": "NYSEARCA:IVW",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 1.18877,
       "atr14_pct": 0.7101798221725275,
-      "bb_ma20": 164.809501,
       "bb_lower": 162.199535,
+      "bb_ma20": 164.809501,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:SGOV",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 100.6500015258789,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 97.87,
+      "pct_chg_7d": null,
+      "price_now_close": 167.38999938964844,
+      "price_now_close_at_utc": null,
+      "rsi14": 61.13,
+      "symbol_canonical": "NYSEARCA:IUSG",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 0.017187,
       "atr14_pct": 0.017076005702375392,
-      "bb_ma20": 100.4933,
       "bb_lower": 100.310475,
+      "bb_ma20": 100.4933,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:QQQM",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 254.02000427246094,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 62.9,
+      "pct_chg_7d": null,
+      "price_now_close": 100.6500015258789,
+      "price_now_close_at_utc": null,
+      "rsi14": 97.87,
+      "symbol_canonical": "NYSEARCA:SGOV",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 1.956204,
       "atr14_pct": 0.7700984044948612,
-      "bb_ma20": 249.002001,
       "bb_lower": 243.983819,
+      "bb_ma20": 249.002001,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:SOXX",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 295.8599853515625,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 62.97,
+      "pct_chg_7d": null,
+      "price_now_close": 254.02000427246094,
+      "price_now_close_at_utc": null,
+      "rsi14": 62.9,
+      "symbol_canonical": "NASDAQ:QQQM",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 4.901797,
       "atr14_pct": 1.6567962018166553,
-      "bb_ma20": 284.303499,
       "bb_lower": 269.204605,
+      "bb_ma20": 284.303499,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:NVDA",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 186.25999450683594,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 56.19,
+      "pct_chg_7d": null,
+      "price_now_close": 295.8599853515625,
+      "price_now_close_at_utc": null,
+      "rsi14": 62.97,
+      "symbol_canonical": "NASDAQ:SOXX",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 2.69514,
       "atr14_pct": 1.4469773861724695,
-      "bb_ma20": 184.665501,
       "bb_lower": 177.692487,
+      "bb_ma20": 184.665501,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:AVGO",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 354.1300048828125,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 57.95,
+      "pct_chg_7d": null,
+      "price_now_close": 186.25999450683594,
+      "price_now_close_at_utc": null,
+      "rsi14": 56.19,
+      "symbol_canonical": "NASDAQ:NVDA",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 6.480491,
       "atr14_pct": 1.82997512513646,
-      "bb_ma20": 342.052998,
       "bb_lower": 324.385572,
+      "bb_ma20": 342.052998,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:TSM",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 294.9599914550781,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 55.55,
+      "pct_chg_7d": null,
+      "price_now_close": 354.1300048828125,
+      "price_now_close_at_utc": null,
+      "rsi14": 57.95,
+      "symbol_canonical": "NASDAQ:AVGO",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 5.905484,
       "atr14_pct": 2.002130516368487,
-      "bb_ma20": 293.401001,
       "bb_lower": 276.742902,
+      "bb_ma20": 293.401001,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:PLTR",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 184.6300048828125,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 57.51,
+      "pct_chg_7d": null,
+      "price_now_close": 294.9599914550781,
+      "price_now_close_at_utc": null,
+      "rsi14": 55.55,
+      "symbol_canonical": "NYSE:TSM",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.317962,
       "atr14_pct": 1.797087099740891,
-      "bb_ma20": 180.453,
       "bb_lower": 173.306419,
+      "bb_ma20": 180.453,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:VST",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 201.47000122070312,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 51.25,
+      "pct_chg_7d": null,
+      "price_now_close": 184.6300048828125,
+      "price_now_close_at_utc": null,
+      "rsi14": 57.51,
+      "symbol_canonical": "NYSE:PLTR",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 5.399362,
       "atr14_pct": 2.6799831078003487,
-      "bb_ma20": 200.527,
       "bb_lower": 186.221373,
+      "bb_ma20": 200.527,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:ARGT",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 74.25,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 55.16,
+      "pct_chg_7d": null,
+      "price_now_close": 201.47000122070312,
+      "price_now_close_at_utc": null,
+      "rsi14": 51.25,
+      "symbol_canonical": "NYSE:VST",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 1.303556,
       "atr14_pct": 1.7556309764309763,
-      "bb_ma20": 71.0435,
       "bb_lower": 66.975961,
+      "bb_ma20": 71.0435,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:SPY",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 677.25,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 62.64,
+      "pct_chg_7d": null,
+      "price_now_close": 74.25,
+      "price_now_close_at_utc": null,
+      "rsi14": 55.16,
+      "symbol_canonical": "NYSEARCA:ARGT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.849888,
       "atr14_pct": 0.5684589147286822,
-      "bb_ma20": 667.481494,
       "bb_lower": 657.00203,
+      "bb_ma20": 667.481494,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:VOO",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 622.5499877929688,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 62.7,
+      "pct_chg_7d": null,
+      "price_now_close": 677.25,
+      "price_now_close_at_utc": null,
+      "rsi14": 62.64,
+      "symbol_canonical": "NYSEARCA:SPY",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.507249,
       "atr14_pct": 0.5633682545611659,
-      "bb_ma20": 613.638501,
       "bb_lower": 604.066971,
+      "bb_ma20": 613.638501,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:VTI",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 333.7099914550781,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 61.87,
+      "pct_chg_7d": null,
+      "price_now_close": 622.5499877929688,
+      "price_now_close_at_utc": null,
+      "rsi14": 62.7,
+      "symbol_canonical": "NYSEARCA:VOO",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 1.975201,
       "atr14_pct": 0.5918914778030818,
-      "bb_ma20": 329.006499,
       "bb_lower": 323.905409,
+      "bb_ma20": 329.006499,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:QQQ",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 617.0999755859375,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 62.89,
+      "pct_chg_7d": null,
+      "price_now_close": 333.7099914550781,
+      "price_now_close_at_utc": null,
+      "rsi14": 61.87,
+      "symbol_canonical": "NYSEARCA:VTI",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 4.768626,
       "atr14_pct": 0.7727477213837485,
-      "bb_ma20": 604.867996,
       "bb_lower": 592.683719,
+      "bb_ma20": 604.867996,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:XLK",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 293.5799865722656,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 65.01,
+      "pct_chg_7d": null,
+      "price_now_close": 617.0999755859375,
+      "price_now_close_at_utc": null,
+      "rsi14": 62.89,
+      "symbol_canonical": "NASDAQ:QQQ",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 2.767791,
       "atr14_pct": 0.9427723709356801,
-      "bb_ma20": 285.772,
       "bb_lower": 278.609554,
+      "bb_ma20": 285.772,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:SMH",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 351.1400146484375,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 63.79,
+      "pct_chg_7d": null,
+      "price_now_close": 293.5799865722656,
+      "price_now_close_at_utc": null,
+      "rsi14": 65.01,
+      "symbol_canonical": "NYSEARCA:XLK",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 5.114181,
       "atr14_pct": 1.4564506426646746,
-      "bb_ma20": 339.144997,
       "bb_lower": 324.186585,
+      "bb_ma20": 339.144997,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:IJR",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 121.13999938964844,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 59.04,
+      "pct_chg_7d": null,
+      "price_now_close": 351.1400146484375,
+      "price_now_close_at_utc": null,
+      "rsi14": 63.79,
+      "symbol_canonical": "NYSEARCA:SMH",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 1.089802,
       "atr14_pct": 0.8996219295780554,
-      "bb_ma20": 118.739999,
       "bb_lower": 115.857361,
+      "bb_ma20": 118.739999,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:IWF",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 477.19000244140625,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 61.05,
+      "pct_chg_7d": null,
+      "price_now_close": 121.13999938964844,
+      "price_now_close_at_utc": null,
+      "rsi14": 59.04,
+      "symbol_canonical": "NYSEARCA:IJR",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.517051,
       "atr14_pct": 0.737033672542596,
-      "bb_ma20": 469.832999,
       "bb_lower": 461.71459,
+      "bb_ma20": 469.832999,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:IWD",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 206.3000030517578,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 60.51,
+      "pct_chg_7d": null,
+      "price_now_close": 477.19000244140625,
+      "price_now_close_at_utc": null,
+      "rsi14": 61.05,
+      "symbol_canonical": "NYSEARCA:IWF",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 1.063274,
       "atr14_pct": 0.5154018343534582,
-      "bb_ma20": 203.819999,
       "bb_lower": 200.791151,
+      "bb_ma20": 203.819999,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:XLV",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 146.02999877929688,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 69.35,
+      "pct_chg_7d": null,
+      "price_now_close": 206.3000030517578,
+      "price_now_close_at_utc": null,
+      "rsi14": 60.51,
+      "symbol_canonical": "NYSEARCA:IWD",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 0.749706,
       "atr14_pct": 0.5133917731062038,
-      "bb_ma20": 143.305,
       "bb_lower": 138.588314,
+      "bb_ma20": 143.305,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:XLF",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 53.11000061035156,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 50.39,
+      "pct_chg_7d": null,
+      "price_now_close": 146.02999877929688,
+      "price_now_close_at_utc": null,
+      "rsi14": 69.35,
+      "symbol_canonical": "NYSEARCA:XLV",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 0.378197,
       "atr14_pct": 0.7121012910067382,
-      "bb_ma20": 53.08,
       "bb_lower": 51.818556,
+      "bb_ma20": 53.08,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSEARCA:XLE",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 88.06999969482422,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 52.27,
+      "pct_chg_7d": null,
+      "price_now_close": 53.11000061035156,
+      "price_now_close_at_utc": null,
+      "rsi14": 50.39,
+      "symbol_canonical": "NYSEARCA:XLF",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 0.803043,
       "atr14_pct": 0.9118235526089072,
-      "bb_ma20": 87.793501,
       "bb_lower": 84.78232,
+      "bb_ma20": 87.793501,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:MSFT",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 523.6099853515625,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 59.48,
+      "pct_chg_7d": null,
+      "price_now_close": 88.06999969482422,
+      "price_now_close_at_utc": null,
+      "rsi14": 52.27,
+      "symbol_canonical": "NYSEARCA:XLE",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 2.982625,
       "atr14_pct": 0.5696272193887602,
-      "bb_ma20": 518.075493,
       "bb_lower": 508.633353,
+      "bb_ma20": 518.075493,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:AAPL",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 262.82000732421875,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 64.21,
+      "pct_chg_7d": null,
+      "price_now_close": 523.6099853515625,
+      "price_now_close_at_utc": null,
+      "rsi14": 59.48,
+      "symbol_canonical": "NASDAQ:MSFT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 2.933143,
       "atr14_pct": 1.1160272879764555,
-      "bb_ma20": 255.028499,
       "bb_lower": 244.69736,
+      "bb_ma20": 255.028499,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:GOOGL",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 259.9200134277344,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 66.84,
+      "pct_chg_7d": null,
+      "price_now_close": 262.82000732421875,
+      "price_now_close_at_utc": null,
+      "rsi14": 64.21,
+      "symbol_canonical": "NASDAQ:AAPL",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.105654,
       "atr14_pct": 1.1948498921047748,
-      "bb_ma20": 247.954501,
       "bb_lower": 237.113624,
+      "bb_ma20": 247.954501,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:AMZN",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 224.2100067138672,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 53.77,
+      "pct_chg_7d": null,
+      "price_now_close": 259.9200134277344,
+      "price_now_close_at_utc": null,
+      "rsi14": 66.84,
+      "symbol_canonical": "NASDAQ:GOOGL",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.074568,
       "atr14_pct": 1.3712893751096975,
-      "bb_ma20": 219.88,
       "bb_lower": 212.576948,
+      "bb_ma20": 219.88,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:META",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 738.3599853515625,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 53.76,
+      "pct_chg_7d": null,
+      "price_now_close": 224.2100067138672,
+      "price_now_close_at_utc": null,
+      "rsi14": 53.77,
+      "symbol_canonical": "NASDAQ:AMZN",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 7.439452,
       "atr14_pct": 1.007564351751508,
-      "bb_ma20": 723.011002,
       "bb_lower": 700.867304,
+      "bb_ma20": 723.011002,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:AMD",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 252.9199981689453,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 73.35,
+      "pct_chg_7d": null,
+      "price_now_close": 738.3599853515625,
+      "price_now_close_at_utc": null,
+      "rsi14": 53.76,
+      "symbol_canonical": "NASDAQ:META",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 7.345846,
       "atr14_pct": 2.904414855757324,
-      "bb_ma20": 212.880499,
       "bb_lower": 152.52361,
+      "bb_ma20": 212.880499,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:LRCX",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 151.67999267578125,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 66.9,
+      "pct_chg_7d": null,
+      "price_now_close": 252.9199981689453,
+      "price_now_close_at_utc": null,
+      "rsi14": 73.35,
+      "symbol_canonical": "NASDAQ:AMD",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.442106,
       "atr14_pct": 2.2693210483979676,
-      "bb_ma20": 141.966497,
       "bb_lower": 131.28504,
+      "bb_ma20": 141.966497,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NASDAQ:ASML",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 1033.0999755859375,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 63.88,
+      "pct_chg_7d": null,
+      "price_now_close": 151.67999267578125,
+      "price_now_close_at_utc": null,
+      "rsi14": 66.9,
+      "symbol_canonical": "NASDAQ:LRCX",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 16.755378,
       "atr14_pct": 1.621854457067134,
-      "bb_ma20": 1006.063007,
       "bb_lower": 947.870126,
+      "bb_ma20": 1006.063007,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:COST",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 932.1400146484375,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 47.39,
+      "pct_chg_7d": null,
+      "price_now_close": 1033.0999755859375,
+      "price_now_close_at_utc": null,
+      "rsi14": 63.88,
+      "symbol_canonical": "NASDAQ:ASML",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 8.054812,
       "atr14_pct": 0.8641203975175257,
-      "bb_ma20": 929.846002,
       "bb_lower": 904.636079,
+      "bb_ma20": 929.846002,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:UNH",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 362.5,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 60.55,
+      "pct_chg_7d": null,
+      "price_now_close": 932.1400146484375,
+      "price_now_close_at_utc": null,
+      "rsi14": 47.39,
+      "symbol_canonical": "NYSE:COST",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.732916,
       "atr14_pct": 1.0297699310344828,
-      "bb_ma20": 358.727,
       "bb_lower": 345.568474,
+      "bb_ma20": 358.727,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:JPM",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 300.44000244140625,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 47.56,
+      "pct_chg_7d": null,
+      "price_now_close": 362.5,
+      "price_now_close_at_utc": null,
+      "rsi14": 60.55,
+      "symbol_canonical": "NYSE:UNH",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 3.259127,
       "atr14_pct": 1.0847846403661296,
-      "bb_ma20": 303.978258,
       "bb_lower": 292.579095,
+      "bb_ma20": 303.978258,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:BRK.B",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 492.1000061035156,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 47.41,
+      "pct_chg_7d": null,
+      "price_now_close": 300.44000244140625,
+      "price_now_close_at_utc": null,
+      "rsi14": 47.56,
+      "symbol_canonical": "NYSE:JPM",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 2.794587,
       "atr14_pct": 0.5678900559517865,
-      "bb_ma20": 495.3925,
       "bb_lower": 486.986188,
+      "bb_ma20": 495.3925,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:NVO",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 52.959999084472656,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 34.76,
+      "pct_chg_7d": null,
+      "price_now_close": 492.1000061035156,
+      "price_now_close_at_utc": null,
+      "rsi14": 47.41,
+      "symbol_canonical": "NYSE:BRK.B",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 0.905971,
       "atr14_pct": 1.7106703467931548,
-      "bb_ma20": 56.6925,
       "bb_lower": 52.302088,
+      "bb_ma20": 56.6925,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "NYSE:LLY",
-      "asset_type": "eq",
-      "window_used": "7d",
-      "price_now_close": 825.4500122070312,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 58.39,
+      "pct_chg_7d": null,
+      "price_now_close": 52.959999084472656,
+      "price_now_close_at_utc": null,
+      "rsi14": 34.76,
+      "symbol_canonical": "NYSE:NVO",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "eq",
       "atr14": 11.106047,
       "atr14_pct": 1.3454536114555766,
-      "bb_ma20": 817.293497,
       "bb_lower": 759.724959,
+      "bb_ma20": 817.293497,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:BTCUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 111617.37,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 49.17,
+      "pct_chg_7d": null,
+      "price_now_close": 825.4500122070312,
+      "price_now_close_at_utc": null,
+      "rsi14": 58.39,
+      "symbol_canonical": "NYSE:LLY",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 1640.667089,
       "atr14_pct": 1.469903016887067,
-      "bb_ma20": 112892.32,
       "bb_lower": 101968.108465,
+      "bb_ma20": 112892.32,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:ETHUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 3940.31,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 45.12,
+      "pct_chg_7d": null,
+      "price_now_close": 111617.37,
+      "price_now_close_at_utc": null,
+      "rsi14": 49.17,
+      "symbol_canonical": "BINANCE:BTCUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 90.106741,
       "atr14_pct": 2.286793196474389,
-      "bb_ma20": 4054.673,
       "bb_lower": 3535.964267,
+      "bb_ma20": 4054.673,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:SOLUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 192.18,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 44.74,
+      "pct_chg_7d": null,
+      "price_now_close": 3940.31,
+      "price_now_close_at_utc": null,
+      "rsi14": 45.12,
+      "symbol_canonical": "BINANCE:ETHUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 6.108234,
       "atr14_pct": 3.178392132375898,
-      "bb_ma20": 197.255,
       "bb_lower": 165.381034,
+      "bb_ma20": 197.255,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:LINKUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 17.94,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 42.61,
+      "pct_chg_7d": null,
+      "price_now_close": 192.18,
+      "price_now_close_at_utc": null,
+      "rsi14": 44.74,
+      "symbol_canonical": "BINANCE:SOLUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.673139,
       "atr14_pct": 3.75216833890747,
-      "bb_ma20": 18.759,
       "bb_lower": 14.722611,
+      "bb_ma20": 18.759,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:XRPUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 2.5607,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 51.42,
+      "pct_chg_7d": null,
+      "price_now_close": 17.94,
+      "price_now_close_at_utc": null,
+      "rsi14": 42.61,
+      "symbol_canonical": "BINANCE:LINKUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.069504,
       "atr14_pct": 2.7142578201273087,
-      "bb_ma20": 2.52207,
       "bb_lower": 2.126677,
+      "bb_ma20": 2.52207,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:FETUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 0.2558,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 25.22,
+      "pct_chg_7d": null,
+      "price_now_close": 2.5607,
+      "price_now_close_at_utc": null,
+      "rsi14": 51.42,
+      "symbol_canonical": "BINANCE:XRPUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.019758,
       "atr14_pct": 7.724003127443314,
-      "bb_ma20": 0.343295,
       "bb_lower": 0.121788,
+      "bb_ma20": 0.343295,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:ADAUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 0.6517,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 38.22,
+      "pct_chg_7d": null,
+      "price_now_close": 0.2558,
+      "price_now_close_at_utc": null,
+      "rsi14": 25.22,
+      "symbol_canonical": "BINANCE:FETUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.022328,
       "atr14_pct": 3.426116311186129,
-      "bb_ma20": 0.692215,
       "bb_lower": 0.537947,
+      "bb_ma20": 0.692215,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:DOTUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 3.038,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 37.57,
+      "pct_chg_7d": null,
+      "price_now_close": 0.6517,
+      "price_now_close_at_utc": null,
+      "rsi14": 38.22,
+      "symbol_canonical": "BINANCE:ADAUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.114471,
       "atr14_pct": 3.7679723502304148,
-      "bb_ma20": 3.2863,
       "bb_lower": 2.336237,
+      "bb_ma20": 3.2863,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:ATOMUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 3.148,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 36.35,
+      "pct_chg_7d": null,
+      "price_now_close": 3.038,
+      "price_now_close_at_utc": null,
+      "rsi14": 37.57,
+      "symbol_canonical": "BINANCE:DOTUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.102444,
       "atr14_pct": 3.25425667090216,
-      "bb_ma20": 3.4246,
       "bb_lower": 2.648196,
+      "bb_ma20": 3.4246,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:ARBUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 0.3182,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 39.35,
+      "pct_chg_7d": null,
+      "price_now_close": 3.148,
+      "price_now_close_at_utc": null,
+      "rsi14": 36.35,
+      "symbol_canonical": "BINANCE:ATOMUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.012636,
       "atr14_pct": 3.971087366436204,
-      "bb_ma20": 0.341265,
       "bb_lower": 0.244589,
+      "bb_ma20": 0.341265,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:OPUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 0.4409,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 35.09,
+      "pct_chg_7d": null,
+      "price_now_close": 0.3182,
+      "price_now_close_at_utc": null,
+      "rsi14": 39.35,
+      "symbol_canonical": "BINANCE:ARBUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.019908,
       "atr14_pct": 4.515309594012247,
-      "bb_ma20": 0.50639,
       "bb_lower": 0.280095,
+      "bb_ma20": 0.50639,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:AAVEUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 226.06,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 39.81,
+      "pct_chg_7d": null,
+      "price_now_close": 0.4409,
+      "price_now_close_at_utc": null,
+      "rsi14": 35.09,
+      "symbol_canonical": "BINANCE:OPUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 8.896685,
       "atr14_pct": 3.935541449172786,
-      "bb_ma20": 240.5865,
       "bb_lower": 189.846825,
+      "bb_ma20": 240.5865,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:UNIUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 6.192,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 40.1,
+      "pct_chg_7d": null,
+      "price_now_close": 226.06,
+      "price_now_close_at_utc": null,
+      "rsi14": 39.81,
+      "symbol_canonical": "BINANCE:AAVEUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.220748,
       "atr14_pct": 3.565051679586563,
-      "bb_ma20": 6.6405,
       "bb_lower": 5.142757,
+      "bb_ma20": 6.6405,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:LTCUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 96.36,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 44.07,
+      "pct_chg_7d": null,
+      "price_now_close": 6.192,
+      "price_now_close_at_utc": null,
+      "rsi14": 40.1,
+      "symbol_canonical": "BINANCE:UNIUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 2.325975,
       "atr14_pct": 2.413838729763387,
-      "bb_ma20": 99.667,
       "bb_lower": 78.607381,
+      "bb_ma20": 99.667,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:TRXUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 0.298,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 27.62,
+      "pct_chg_7d": null,
+      "price_now_close": 96.36,
+      "price_now_close_at_utc": null,
+      "rsi14": 44.07,
+      "symbol_canonical": "BINANCE:LTCUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.00461,
       "atr14_pct": 1.5469798657718123,
-      "bb_ma20": 0.320995,
       "bb_lower": 0.297334,
+      "bb_ma20": 0.320995,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:TONUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 2.144,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 33.78,
+      "pct_chg_7d": null,
+      "price_now_close": 0.298,
+      "price_now_close_at_utc": null,
+      "rsi14": 27.62,
+      "symbol_canonical": "BINANCE:TRXUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.062906,
       "atr14_pct": 2.9340485074626868,
-      "bb_ma20": 2.3011,
       "bb_lower": 1.798644,
+      "bb_ma20": 2.3011,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:NEARUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 2.236,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 36.13,
+      "pct_chg_7d": null,
+      "price_now_close": 2.144,
+      "price_now_close_at_utc": null,
+      "rsi14": 33.78,
+      "symbol_canonical": "BINANCE:TONUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.079805,
       "atr14_pct": 3.5690966010733445,
-      "bb_ma20": 2.4254,
       "bb_lower": 1.842629,
+      "bb_ma20": 2.4254,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
-    },
-    {
-      "symbol_canonical": "BINANCE:INJUSDT",
-      "asset_type": "cr",
-      "window_used": "7d",
-      "price_now_close": 8.37,
-      "price_now_close_at_utc": null,
-      "pct_chg_7d": null,
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
       "pct_chg_10d": null,
       "pct_chg_30d": null,
-      "rsi14": 33.7,
+      "pct_chg_7d": null,
+      "price_now_close": 2.236,
+      "price_now_close_at_utc": null,
+      "rsi14": 36.13,
+      "symbol_canonical": "BINANCE:NEARUSDT",
+      "window_used": "7d"
+    },
+    {
+      "asset_type": "cr",
       "atr14": 0.32881,
       "atr14_pct": 3.928434886499403,
-      "bb_ma20": 9.499,
       "bb_lower": 6.298463,
+      "bb_ma20": 9.499,
       "bb_upper": null,
-      "funding": null,
-      "oi_chg_3d_pct": null,
       "features": {
-        "chg_7d_pct": null,
         "chg_10d_pct": null,
         "chg_30d_pct": null,
+        "chg_7d_pct": null,
         "price_now_close_at_utc": null
-      }
+      },
+      "funding": null,
+      "oi_chg_3d_pct": null,
+      "pct_chg_10d": null,
+      "pct_chg_30d": null,
+      "pct_chg_7d": null,
+      "price_now_close": 8.37,
+      "price_now_close_at_utc": null,
+      "rsi14": 33.7,
+      "symbol_canonical": "BINANCE:INJUSDT",
+      "window_used": "7d"
     }
   ],
   "universe": [
     {
-      "symbol": "NYSEARCA:VUG",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:VUG"
     },
     {
-      "symbol": "NYSEARCA:IVW",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:IVW"
     },
     {
-      "symbol": "NYSEARCA:IUSG",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:IUSG"
     },
     {
-      "symbol": "NYSEARCA:SGOV",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:SGOV"
     },
     {
-      "symbol": "NASDAQ:QQQM",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:QQQM"
     },
     {
-      "symbol": "NASDAQ:SOXX",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:SOXX"
     },
     {
-      "symbol": "NASDAQ:NVDA",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:NVDA"
     },
     {
-      "symbol": "NASDAQ:AVGO",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:AVGO"
     },
     {
-      "symbol": "NYSE:TSM",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:TSM"
     },
     {
-      "symbol": "NYSE:PLTR",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:PLTR"
     },
     {
-      "symbol": "NYSE:VST",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:VST"
     },
     {
-      "symbol": "NYSEARCA:ARGT",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:ARGT"
     },
     {
-      "symbol": "NYSEARCA:SPY",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:SPY"
     },
     {
-      "symbol": "NYSEARCA:VOO",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:VOO"
     },
     {
-      "symbol": "NYSEARCA:VTI",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:VTI"
     },
     {
-      "symbol": "NASDAQ:QQQ",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:QQQ"
     },
     {
-      "symbol": "NYSEARCA:XLK",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:XLK"
     },
     {
-      "symbol": "NYSEARCA:SMH",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:SMH"
     },
     {
-      "symbol": "NYSEARCA:IJR",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:IJR"
     },
     {
-      "symbol": "NYSEARCA:IWF",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:IWF"
     },
     {
-      "symbol": "NYSEARCA:IWD",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:IWD"
     },
     {
-      "symbol": "NYSEARCA:XLV",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:XLV"
     },
     {
-      "symbol": "NYSEARCA:XLF",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:XLF"
     },
     {
-      "symbol": "NYSEARCA:XLE",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSEARCA:XLE"
     },
     {
-      "symbol": "NASDAQ:MSFT",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:MSFT"
     },
     {
-      "symbol": "NASDAQ:AAPL",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:AAPL"
     },
     {
-      "symbol": "NASDAQ:GOOGL",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:GOOGL"
     },
     {
-      "symbol": "NASDAQ:AMZN",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:AMZN"
     },
     {
-      "symbol": "NASDAQ:META",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:META"
     },
     {
-      "symbol": "NASDAQ:AMD",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:AMD"
     },
     {
-      "symbol": "NASDAQ:LRCX",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:LRCX"
     },
     {
-      "symbol": "NASDAQ:ASML",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NASDAQ:ASML"
     },
     {
-      "symbol": "NYSE:COST",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:COST"
     },
     {
-      "symbol": "NYSE:UNH",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:UNH"
     },
     {
-      "symbol": "NYSE:JPM",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:JPM"
     },
     {
-      "symbol": "NYSE:BRK.B",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:BRK.B"
     },
     {
-      "symbol": "NYSE:NVO",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:NVO"
     },
     {
-      "symbol": "NYSE:LLY",
-      "asset_type": "eq"
+      "asset_type": "eq",
+      "symbol": "NYSE:LLY"
     },
     {
-      "symbol": "BINANCE:BTCUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:BTCUSDT"
     },
     {
-      "symbol": "BINANCE:ETHUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:ETHUSDT"
     },
     {
-      "symbol": "BINANCE:SOLUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:SOLUSDT"
     },
     {
-      "symbol": "BINANCE:LINKUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:LINKUSDT"
     },
     {
-      "symbol": "BINANCE:XRPUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:XRPUSDT"
     },
     {
-      "symbol": "BINANCE:FETUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:FETUSDT"
     },
     {
-      "symbol": "BINANCE:ADAUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:ADAUSDT"
     },
     {
-      "symbol": "BINANCE:DOTUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:DOTUSDT"
     },
     {
-      "symbol": "BINANCE:ATOMUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:ATOMUSDT"
     },
     {
-      "symbol": "BINANCE:ARBUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:ARBUSDT"
     },
     {
-      "symbol": "BINANCE:OPUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:OPUSDT"
     },
     {
-      "symbol": "BINANCE:AAVEUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:AAVEUSDT"
     },
     {
-      "symbol": "BINANCE:UNIUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:UNIUSDT"
     },
     {
-      "symbol": "BINANCE:LTCUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:LTCUSDT"
     },
     {
-      "symbol": "BINANCE:TRXUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:TRXUSDT"
     },
     {
-      "symbol": "BINANCE:TONUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:TONUSDT"
     },
     {
-      "symbol": "BINANCE:NEARUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:NEARUSDT"
     },
     {
-      "symbol": "BINANCE:INJUSDT",
-      "asset_type": "cr"
+      "asset_type": "cr",
+      "symbol": "BINANCE:INJUSDT"
     }
   ]
 }

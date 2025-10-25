@@ -21,9 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PUB = ROOT / "public"
 OUT_CSV = PUB / "n_signals_universe_latest.csv"
 
-# ----------------------------
-# util
-# ----------------------------
 def _read_json(p: Path) -> dict:
     with p.open("r", encoding="utf-8") as f:
         return json.load(f)
@@ -33,13 +30,8 @@ def _latest_glob(pattern: str) -> Path | None:
     return files[-1] if files else None
 
 def _load_pointer_paths() -> dict:
-    """
-    Lê public/pointer_signals_v1.json, preferindo caminhos locais.
-    Faz fallback por glob quando necessário.
-    """
     ptr_file = PUB / "pointer_signals_v1.json"
     out = {"signals": None, "ohlcv": None, "indicators": None}
-
     if ptr_file.exists():
         try:
             data = _read_json(ptr_file)
@@ -49,15 +41,12 @@ def _load_pointer_paths() -> dict:
                     out[k] = (ROOT / v).resolve() if v.startswith("public/") else Path(v).resolve()
         except Exception:
             pass
-
-    # Fallbacks por glob
     if not out["signals"]:
         out["signals"] = _latest_glob("n_signals_v1_*.json") or (PUB / "n_signals_v1_latest.json")
     if not out["ohlcv"]:
         out["ohlcv"] = _latest_glob("ohlcv_cache_*.json")
     if not out["indicators"]:
         out["indicators"] = _latest_glob("indicators_*.json")
-
     return out
 
 def _split_symbol(sym: str) -> tuple[str, str]:
@@ -81,9 +70,6 @@ def _pct(a_now: float | None, a_prev: float | None) -> float | None:
     except Exception:
         return None
 
-# ----------------------------
-# Normalização de OHLCV (compatível com vários formatos)
-# ----------------------------
 def _to_iso(ts: Any) -> Optional[str]:
     if ts is None:
         return None
@@ -103,10 +89,6 @@ def _ensure_list(x: Any) -> List[Any]:
     return [x]
 
 def _extract_arrays_from_any(sec: Any) -> Tuple[List[float], List[Optional[str]]]:
-    """
-    Dado um nó de OHLCV (dict/list/qualquer), tenta extrair arrays de closes e times.
-    Retorna (closes, times) com mesmo comprimento. Se não conseguir, retorna listas vazias.
-    """
     closes: List[float] = []
     times: List[Optional[str]] = []
 
@@ -131,11 +113,9 @@ def _extract_arrays_from_any(sec: Any) -> Tuple[List[float], List[Optional[str]]
             c = _ensure_list(ser.get("c") or ser.get("close") or ser.get("closes") or ser.get("C"))
             t = _ensure_list(ser.get("t") or ser.get("ts") or ser.get("timestamp") or ser.get("T"))
             if push_arrays(c, t): return closes, times
-        # campos diretos
         c = _ensure_list(sec.get("c") or sec.get("close") or sec.get("closes") or sec.get("C"))
         t = _ensure_list(sec.get("t") or sec.get("ts") or sec.get("timestamp") or sec.get("T"))
         if push_arrays(c, t): return closes, times
-        # lista de pontos dentro de series
         if isinstance(ser, list):
             cand_c, cand_t = [], []
             for pt in ser:
@@ -162,12 +142,6 @@ def _close_n_days_ago(closes: List[float], days: int) -> float | None:
     except Exception:
         return None
 
-def _last_close_ts(times: List[Optional[str]]) -> Optional[str]:
-    if not times:
-        return None
-    t = times[-1]
-    return t if isinstance(t, str) else None
-
 def _atr_pct(atr, close) -> float | None:
     try:
         if atr is None or close in (None, 0):
@@ -187,24 +161,27 @@ def _ensure_bb_upper(bb_ma20, bb_lower) -> float | None:
 def _sources_used(asset_type: str) -> str:
     return "binance+coingecko" if asset_type == "cr" else "yahoo+stooq+nasdaq"
 
-# ----------------------------
-# main
-# ----------------------------
 def main():
     paths = _load_pointer_paths()
     sig_path = paths.get("signals")
     ohlcv_path = paths.get("ohlcv")
+    ind_path = paths.get("indicators")
 
     if not sig_path or not Path(sig_path).exists():
         print(f"[erro] signals JSON não encontrado: {sig_path}", file=sys.stderr)
         sys.exit(2)
 
-    # OHLCV é opcional p/ não derrubar o CSV (pct_chg ficam vazios)
     ohlcv: Dict[str, Any] = {}
     if ohlcv_path and Path(ohlcv_path).exists():
         ohlcv = _read_json(Path(ohlcv_path))
     else:
-        print(f"[aviso] ohlcv_cache não encontrado; variações pct ficarão nulas: {ohlcv_path}", file=sys.stderr)
+        print(f"[aviso] ohlcv_cache não encontrado: {ohlcv_path}", file=sys.stderr)
+
+    indicators: Dict[str, Any] = {}
+    if ind_path and Path(ind_path).exists():
+        indicators = _read_json(Path(ind_path))
+    if "eq" not in indicators: indicators["eq"] = {}
+    if "cr" not in indicators: indicators["cr"] = {}
 
     signals = _read_json(Path(sig_path))
     rows: list[str] = []
@@ -225,11 +202,12 @@ def main():
 
     for s in signals.get("signals", []):
         sym: str = s.get("symbol_canonical")
-        asset_type: str = s.get("asset_type")
+        asset_type_raw: str = s.get("asset_type")
+        asset_type = "cr" if asset_type_raw in ("cr", "crypto") else "eq"
         venue, _ = _split_symbol(sym or "")
         win = s.get("window_used") or "7d"
 
-        # dados diretos do payload v1
+        # payload base
         close_now = s.get("price_now_close")
         rsi14 = s.get("rsi14")
         atr14 = s.get("atr14")
@@ -237,37 +215,49 @@ def main():
         bb_ma20 = s.get("bb_ma20")
         bb_lower = s.get("bb_lower")
         bb_upper = s.get("bb_upper") or _ensure_bb_upper(bb_ma20, bb_lower)
-        funding = s.get("funding")
-        oi_chg_3d_pct = s.get("oi_chg_3d_pct")
 
-        # candles (para calcular pct_chg_* e timestamp)
-        sec: Any = None
-        if asset_type == "cr":
-            sec = o_cr.get(sym)
-        else:
-            sec = o_eq.get(sym)
+        # derivados de indicadores (funding/oi) – para cripto
+        ind_node = indicators["cr"].get(sym) if asset_type == "cr" else indicators["eq"].get(sym)
+        funding = (ind_node or {}).get("funding")
+        oi_chg_3d_pct = (ind_node or {}).get("oi_chg_3d_pct")
 
-        closes: List[float] = []
-        times: List[Optional[str]] = []
-        if sec is not None:
-            closes, times = _extract_arrays_from_any(sec)
+        # candles e derivados do ohlcv_cache
+        sec = o_cr.get(sym) if asset_type == "cr" else o_eq.get(sym)
+        closes, times = [], []
+        last_ts = s.get("price_now_close_at_utc") or None
+        pct7 = pct10 = pct30 = None
+        if isinstance(sec, dict):
+            # preferir 'derived' calculado no enrich
+            drv = sec.get("derived") or {}
+            pct7 = drv.get("pct_chg_7d")
+            pct10 = drv.get("pct_chg_10d")
+            pct30 = drv.get("pct_chg_30d")
+            last_ts = drv.get("last_close_ts_utc") or last_ts
 
-        ts_utc = _last_close_ts(times) if times else (s.get("price_now_close_at_utc") or None)
-        c7  = _close_n_days_ago(closes, 7)
-        c10 = _close_n_days_ago(closes, 10)
-        c30 = _close_n_days_ago(closes, 30)
-        pct7  = _pct(close_now, c7)
-        pct10 = _pct(close_now, c10)
-        pct30 = _pct(close_now, c30)
-        atr14_pct = atr14_pct or _atr_pct(atr14, close_now)
+            # se não houver derived, tentar calcular
+            if pct7 is None or pct10 is None or pct30 is None or last_ts is None:
+                from_any_c, from_any_t = _extract_arrays_from_any(sec)
+                closes, times = from_any_c, from_any_t
+                if last_ts is None and times:
+                    last_ts = times[-1]
+                if closes:
+                    c7  = _close_n_days_ago(closes, 7)
+                    c10 = _close_n_days_ago(closes, 10)
+                    c30 = _close_n_days_ago(closes, 30)
+                    if pct7 is None:  pct7  = _pct(close_now, c7)
+                    if pct10 is None: pct10 = _pct(close_now, c10)
+                    if pct30 is None: pct30 = _pct(close_now, c30)
+
+        # calcular atr14_pct se faltar
+        atr14_pct = atr14_pct if atr14_pct is not None else ( (float(atr14)/float(close_now)*100.0) if (atr14 not in (None,0) and close_now not in (None,0)) else None )
 
         priceguard = "OK"
         window_status = "TARGET"
-        src_used = _sources_used(asset_type)
+        src_used = "binance+coingecko" if asset_type == "cr" else "yahoo+stooq+nasdaq"
 
         row = [
             _fmt(sym), _fmt(asset_type), _fmt(venue), _fmt(win),
-            _fmt(close_now), _fmt(ts_utc),
+            _fmt(close_now), _fmt(last_ts),
             _fmt(pct7), _fmt(pct10), _fmt(pct30),
             _fmt(rsi14), _fmt(atr14), _fmt(atr14_pct),
             _fmt(bb_ma20), _fmt(bb_lower), _fmt(bb_upper),

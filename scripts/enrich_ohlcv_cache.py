@@ -1,233 +1,263 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 """
-Re-hidrata o arquivo public/ohlcv_cache_*.json adicionando séries colunar:
-  - "c": lista de closes (floats)
-  - "t": lista de timestamps (epoch segundos, UTC)
+Enriquece o OHLCV local garantindo:
+- séries diárias para todos os símbolos do universo (eq/cr),
+- campos derivados por símbolo: pct_chg_7d/10d/30d e last_close_ts_utc,
+- grava novo arquivo em public/ e atualiza pointer_signals_v1.json.
 
-EQ/ETF  -> Yahoo Finance (primário) + Stooq CSV (fallback, **.us**)
-CRYPTO  -> Binance (primário)
+Fonte dos dados:
+- Crypto: Binance Futures (klines 1d)
+- Equity/ETF: Stooq (CSV diário)
 
-Uso:
-  python scripts/enrich_ohlcv_cache.py [--limit 40] [--dry-run]
-
-Requisitos:
-  pip install requests
+Requisitos: requests, csv (built-in)
 """
 
 from __future__ import annotations
+
 import csv
 import io
 import json
-from datetime import datetime, timezone
+import time
+import math
+import argparse
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Tuple, Optional
 
 import requests
 
-PUBLIC_DIR = Path("public")
-OHL_PAT = "ohlcv_cache_*.json"
+ROOT = Path(__file__).resolve().parents[1]
+PUB = ROOT / "public"
 
-# ========== Helpers de mapeamento ==========
+BINANCE_FAPI = "https://fapi.binance.com"
+STOOQ_DAILY = "https://stooq.com/q/d/l/?s={symbol}&i=d"
 
-def _to_yahoo_symbol(symbol_canonical: str) -> str:
-    """
-    "VENUE:TICKER" -> Yahoo: usa parte após ":" e troca "." por "-".
-    NYSE:BRK.B -> BRK-B
-    """
-    ticker = symbol_canonical.split(":", 1)[1] if ":" in symbol_canonical else symbol_canonical
-    return ticker.replace(".", "-").strip()
+def _now_utc_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-def _to_stooq_symbol_us(symbol_canonical: str) -> str:
-    """
-    Stooq para ativos dos EUA requer sufixo '.us' e minúsculas:
-      VUG -> vug.us
-      IVW -> ivw.us
-      IUSG -> iusg.us
-    """
-    ticker = symbol_canonical.split(":", 1)[1] if ":" in symbol_canonical else symbol_canonical
-    return f"{ticker.lower().strip()}.us"
+def _read_json(p: Path) -> dict:
+    with p.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
-def _to_binance_pair(symbol_canonical: str) -> str:
-    """'BINANCE:BTCUSDT' -> 'BTCUSDT'."""
-    return symbol_canonical.split(":", 1)[1].strip() if ":" in symbol_canonical else symbol_canonical.strip()
+def _write_json_atomic(p: Path, data: dict) -> None:
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":"), indent=2), encoding="utf-8")
+    tmp.replace(p)
 
-# ========== Utils ==========
+def _latest_glob(pattern: str) -> Optional[Path]:
+    files = sorted(PUB.glob(pattern))
+    return files[-1] if files else None
 
-def _iso_to_epoch_seconds(iso_yyyy_mm_dd: str) -> int:
-    dt = datetime.strptime(iso_yyyy_mm_dd, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    return int(dt.timestamp())
+def _load_pointer_paths() -> dict:
+    ptr_file = PUB / "pointer_signals_v1.json"
+    out = {"signals": None, "ohlcv": None, "indicators": None}
+    if ptr_file.exists():
+        try:
+            data = _read_json(ptr_file)
+            for k in ("signals", "ohlcv", "indicators"):
+                v = data.get(k)
+                if isinstance(v, str) and v:
+                    out[k] = (ROOT / v).resolve() if v.startswith("public/") else Path(v).resolve()
+        except Exception:
+            pass
+    if not out["signals"]:
+        out["signals"] = _latest_glob("n_signals_v1_*.json") or (PUB / "n_signals_v1_latest.json")
+    if not out["ohlcv"]:
+        out["ohlcv"] = _latest_glob("ohlcv_cache_*.json") or (PUB / "ohlcv_cache.json")
+    if not out["indicators"]:
+        out["indicators"] = _latest_glob("indicators_*.json") or (PUB / "indicators.json")
+    return out
 
-# ========== Fetchers ==========
+def _split_symbol(sym: str) -> Tuple[str, str]:
+    if ":" in sym:
+        ex, tic = sym.split(":", 1)
+        return ex, tic
+    return "", sym
 
-def fetch_yahoo_daily_colunar(yahoo_symbol: str, limit: int = 40) -> Optional[Tuple[List[float], List[int]]]:
-    """
-    Yahoo /v8/finance/chart (diário) -> (closes, timestamps_epoch) ou None
-    """
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_symbol}"
-    params = {"interval": "1d", "range": "2mo"}
+def _pct(now: Optional[float], prev: Optional[float]) -> Optional[float]:
     try:
-        r = requests.get(url, params=params, timeout=15)
-        r.raise_for_status()
-        data = r.json()
-        res = data.get("chart", {}).get("result") or []
-        if not res:
+        if now is None or prev is None or prev == 0:
             return None
-        res0 = res[0]
-        ts = res0.get("timestamp") or []
-        quotes = (res0.get("indicators", {}).get("quote") or [])
-        if not quotes:
-            return None
-        closes = quotes[0].get("close") or []
-        series = [(t, c) for t, c in zip(ts, closes) if c is not None]
-        if not series:
-            return None
-        series = series[-limit:]
-        t_out = [int(t) for t, _ in series]
-        c_out = [float(c) for _, c in series]
-        return c_out, t_out
+        return (float(now)/float(prev) - 1.0) * 100.0
     except Exception:
         return None
 
-def fetch_stooq_daily_colunar(stooq_symbol_us: str, limit: int = 40) -> Optional[Tuple[List[float], List[int]]]:
-    """
-    Fallback Stooq CSV diário (ex.: s=vug.us, i=d):
-      https://stooq.com/q/d/l/?s=vug.us&i=d
-    """
-    url = "https://stooq.com/q/d/l/"
-    params = {"s": stooq_symbol_us, "i": "d"}
+def _to_iso(ts: int | float | str) -> Optional[str]:
     try:
-        r = requests.get(url, params=params, timeout=15)
-        r.raise_for_status()
-        txt = r.text
-        if not txt or txt.strip() == "" or txt.lower().startswith("404"):
+        if ts is None:
             return None
-        c_list: List[float] = []
-        t_list: List[int] = []
-        reader = csv.DictReader(io.StringIO(txt))
-        for row in reader:
-            d = row.get("Date")
-            c = row.get("Close")
-            if not d or not c:
-                continue
-            try:
-                c_val = float(c)
-                t_val = _iso_to_epoch_seconds(d)
-            except Exception:
-                continue
-            c_list.append(c_val)
-            t_list.append(t_val)
-        if not c_list:
-            return None
-        c_list = c_list[-limit:]
-        t_list = t_list[-limit:]
-        return c_list, t_list
+        if isinstance(ts, (int, float)):
+            return datetime.fromtimestamp(float(ts), tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        if isinstance(ts, str) and ts.isdigit():
+            return datetime.fromtimestamp(int(ts), tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        if isinstance(ts, str) and ts.endswith("Z"):
+            return ts
     except Exception:
         return None
+    return None
 
-def fetch_binance_daily_colunar(pair: str, limit: int = 40) -> Optional[Tuple[List[float], List[int]]]:
-    """Binance klines diário."""
-    url = "https://api.binance.com/api/v3/klines"
-    params = {"symbol": pair, "interval": "1d", "limit": str(limit)}
-    try:
-        r = requests.get(url, params=params, timeout=15)
-        r.raise_for_status()
-        arr = r.json()
-        if not isinstance(arr, list) or not arr:
-            return None
-        closes, ts = [], []
-        for k in arr:
-            try:
-                closes.append(float(k[4]))        # close
-                ts.append(int(k[6] // 1000))      # closeTime (ms -> s)
-            except Exception:
-                continue
-        if not closes or len(closes) != len(ts):
-            return None
-        return closes, ts
-    except Exception:
-        return None
+def _binance_klines_1d(symbol: str, limit: int = 120) -> Tuple[List[float], List[str]]:
+    """
+    Futures kline: /fapi/v1/continuousKlines?pair=BTCUSDT&contractType=PERPETUAL&interval=1d&limit=xxx
+    Retorna closes, timestamps (UTC ISOZ)
+    """
+    pair = symbol.upper()
+    url = f"{BINANCE_FAPI}/fapi/v1/continuousKlines"
+    params = {"pair": pair, "contractType": "PERPETUAL", "interval": "1d", "limit": str(limit)}
+    r = requests.get(url, params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    closes, times = [], []
+    for row in data:
+        # kline array fields: [0 openTime,1 open,2 high,3 low,4 close,5 volume,6 closeTime, ...]
+        close = float(row[4])
+        close_time_ms = int(row[6])
+        closes.append(close)
+        times.append(_to_iso(close_time_ms // 1000))
+    return closes, times
 
-# ========== Núcleo ==========
-
-def find_latest_ohlcv_path() -> Optional[Path]:
-    files = sorted(PUBLIC_DIR.glob(OHL_PAT), reverse=True)
-    return files[0] if files else None
-
-def enrich_cache_file(path: Path, limit: int = 40, dry_run: bool = False) -> Tuple[int, int, int]:
-    data: Dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-
-    total = 0
-    changed = 0
-    failed = 0
-
-    for sec in ("eq", "cr"):
-        bucket = data.get(sec)
-        if not isinstance(bucket, dict):
+def _stooq_csv(ticker_canon: str) -> Tuple[List[float], List[str]]:
+    """
+    Stooq espera 'nvda.us', 'spy.us', etc. Converter venue conhecido para sufixo .us quando EUA.
+    """
+    exch, tic = _split_symbol(ticker_canon)
+    # regra simples: venue EUA → .us ; caso contrário, tenta .us mesmo (Stooq cobre as principais dos EUA)
+    stq = f"{tic}.us".lower().replace("/", "-")
+    url = STOOQ_DAILY.format(symbol=stq)
+    r = requests.get(url, timeout=15)
+    r.raise_for_status()
+    text = r.text
+    reader = csv.DictReader(io.StringIO(text))
+    closes, times = [], []
+    for row in reader:
+        # Data no formato YYYY-MM-DD
+        try:
+            c = float(row["Close"])
+            d = row["Date"]
+        except Exception:
             continue
+        closes.append(c)
+        # usar 00:00:00Z para equities (fechamento do dia)
+        times.append(f"{d}T00:00:00Z")
+    return closes, times
 
-        for sym, obj in bucket.items():
-            total += 1
+def _ensure_series(section: Dict[str, Any], sym: str, asset_type: str, min_len: int = 31) -> Tuple[List[float], List[str], bool]:
+    """
+    Garante que exista série (closes,times) para o símbolo.
+    Retorna (closes, times, created_or_extended: bool)
+    """
+    created = False
+    node = section.get(sym) or {}
+    series = node.get("series") or {}
+    closes = series.get("c") or series.get("close") or []
+    times = series.get("t") or series.get("ts") or []
 
-            # já tem série? (qualquer formato mínimo)
-            if isinstance(obj, dict) and (isinstance(obj.get("c"), list) or isinstance(obj.get("close"), list)):
-                continue
+    if isinstance(closes, list) and len(closes) >= min_len and isinstance(times, list) and len(times) == len(closes):
+        return closes, times, created
 
-            got: Optional[Tuple[List[float], List[int]]] = None
+    # Buscar da fonte
+    try:
+        if asset_type == "cr":
+            pair = sym.split(":", 1)[1]  # BINANCE:BTCUSDT -> BTCUSDT
+            closes, times = _binance_klines_1d(pair, limit=max(min_len, 120))
+        else:
+            closes, times = _stooq_csv(sym)
+        if len(closes) >= min_len and len(times) == len(closes):
+            node["series"] = {"c": closes, "t": times}
+            section[sym] = node
+            created = True
+    except Exception as e:
+        # mantém como estava
+        pass
 
-            if sec == "eq":
-                # primário: Yahoo
-                ysym = _to_yahoo_symbol(sym)
-                got = fetch_yahoo_daily_colunar(ysym, limit=limit)
+    return closes, times, created
 
-                # fallback: Stooq .us
-                if not got:
-                    ssym = _to_stooq_symbol_us(sym)  # <<<<<<<<<< SUFIXO .us AQUI
-                    got = fetch_stooq_daily_colunar(ssym, limit=limit)
-            else:
-                pair = _to_binance_pair(sym)
-                got = fetch_binance_daily_colunar(pair, limit=limit)
-
-            if not got:
-                failed += 1
-                continue
-
-            closes, ts = got
-            if isinstance(obj, dict):
-                obj["c"] = closes
-                obj["t"] = ts
-                obj["count"] = len(closes)
-            else:
-                bucket[sym] = {
-                    "window": (data.get("window") or "7d"),
-                    "count": len(closes),
-                    "c": closes,
-                    "t": ts,
-                }
-            changed += 1
-
-    if changed and not dry_run:
-        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-
-    return total, changed, failed
+def _derived_from_series(closes: List[float], times: List[str]) -> Dict[str, Any]:
+    last = closes[-1] if closes else None
+    ts = times[-1] if times else None
+    c7  = closes[-8]  if len(closes) >= 8  else None
+    c10 = closes[-11] if len(closes) >= 11 else None
+    c30 = closes[-31] if len(closes) >= 31 else None
+    return {
+        "last_close": last,
+        "last_close_ts_utc": ts,
+        "pct_chg_7d": _pct(last, c7),
+        "pct_chg_10d": _pct(last, c10),
+        "pct_chg_30d": _pct(last, c30),
+    }
 
 def main():
-    import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=40, help="nº máx de barras por símbolo (default: 40)")
-    ap.add_argument("--dry-run", action="store_true", help="não grava; só reporta")
+    ap.add_argument("--min-len", type=int, default=31, help="mínimo de candles por série")
+    ap.add_argument("--throttle-ms", type=int, default=0, help="sleep entre downloads (0=desligado)")
     args = ap.parse_args()
 
-    p = find_latest_ohlcv_path()
-    if not p:
-        print("[err] nenhum public/ohlcv_cache_*.json encontrado")
-        raise SystemExit(2)
+    ptr = _load_pointer_paths()
+    sig_path = Path(ptr["signals"])
+    ohlcv_path = Path(ptr["ohlcv"]) if ptr["ohlcv"] else None
 
-    total, changed, failed = enrich_cache_file(p, limit=args.limit, dry_run=args.dry_run)
-    tag = p.name
-    print(f"[ok] {tag}: enriquecidos {changed}/{total} • falharam {failed}")
-    if failed:
-        print("     dica: se ainda faltar EQ/ETF, testaremos outro fallback YF CSV e/ou Nasdaq.")
+    if not sig_path.exists():
+        print(f"[erro] signals não encontrado: {sig_path}")
+        return
+
+    signals = _read_json(sig_path)
+    symbols: List[Tuple[str, str]] = []  # (asset_type, symbol_canonical)
+    for s in signals.get("signals", []):
+        at = s.get("asset_type")
+        sc = s.get("symbol_canonical")
+        if at and sc:
+            # normalizar asset_type para eq/cr
+            at_norm = "cr" if at in ("cr", "crypto") else "eq"
+            symbols.append((at_norm, sc))
+
+    # Carregar cache atual (pode estar vazio)
+    cache = {"eq": {}, "cr": {}, "generated_at_utc": None}
+    if ohlcv_path and ohlcv_path.exists():
+        try:
+            cache = _read_json(ohlcv_path)
+            if "eq" not in cache: cache["eq"] = {}
+            if "cr" not in cache: cache["cr"] = {}
+        except Exception:
+            pass
+
+    changed = False
+    for at, sym in symbols:
+        sec = cache[at]
+        closes, times, created = _ensure_series(sec, sym, at, min_len=args.min_len)
+        if created:
+            changed = True
+        # gerar derivados mesmo que já existisse série
+        if closes and times and len(closes) >= 2 and len(times) == len(closes):
+            derived = _derived_from_series(closes, times)
+            node = sec.get(sym) or {}
+            node["derived"] = derived
+            sec[sym] = node
+            changed = True
+        if args.throttle_ms > 0:
+            time.sleep(args.throttle_ms / 1000.0)
+
+    cache["generated_at_utc"] = _now_utc_iso()
+
+    # Gravar novo arquivo em public/
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out_ohlcv = PUB / f"ohlcv_cache_{ts}.json"
+    _write_json_atomic(out_ohlcv, cache)
+
+    # Atualizar pointer
+    ptr_file = PUB / "pointer_signals_v1.json"
+    if ptr_file.exists():
+        try:
+            pdata = _read_json(ptr_file)
+        except Exception:
+            pdata = {}
+    else:
+        pdata = {}
+    pdata["ohlcv"] = f"public/{out_ohlcv.name}"
+    _write_json_atomic(ptr_file, pdata)
+
+    print(f"[ok] ohlcv enriquecido: {out_ohlcv}")
 
 if __name__ == "__main__":
     main()
