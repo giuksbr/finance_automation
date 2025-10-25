@@ -8,14 +8,19 @@ Gera `public/n_signals_v1_<TS>Z.json` e opcionalmente:
 - `public/n_signals_v1_latest.json`
 - atualiza `public/pointer_signals_v1.json`
 
-Local-first:
-- Preferência por arquivos locais quando a URL do pointer aponta para "public/<arquivo>".
-
 Melhorias desta versão:
-- Normaliza APENAS os nomes de campos dos indicadores (rsi14/atr14/bb_*/close), preservando os símbolos.
-- Fallback: se OHLCV não tiver série, usa `indicators.close` como `price_now_close`.
-- Preenche automaticamente `atr14_pct` = 100 * atr14 / price_now_close quando `atr14_pct` vier ausente.
+- Extrai séries de OHLCV em formatos variados:
+    * dict com colunas: {"c":[...], "t":[...]}
+    * dict com `series`: {"series":{"c":[...],"t":[...]}} ou {"series":[{"c":..,"t":..},...]}
+    * lista de pontos [{"c":..,"t":..}, ...]
+    * campos alternativos: "close", "closes", "C", "T", "ts", "timestamp"
+- Calcula chg_% (7/10/30d) quando houver barras suficientes (>= N+1).
+- Define `price_now_close_at_utc` com base no timestamp do último candle.
+- Escreve os percentuais na raiz do objeto **e** em `.features.*` (back-compat).
+- Mantém cálculo de `atr14_pct` quando `atr14` e `price_now_close` estão presentes.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -114,42 +119,93 @@ def _ensure_list(x: Any) -> List[Any]:
     return [x]
 
 
-def _series_to_list(sec: Any) -> List[Dict[str, Any]]:
+def _to_iso(ts: Any) -> Optional[str]:
+    if ts is None:
+        return None
+    if isinstance(ts, (int, float)):
+        return datetime.fromtimestamp(ts, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    if isinstance(ts, str) and ts.isdigit():
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    if isinstance(ts, str) and ts.endswith("Z"):
+        return ts
+    return None
+
+
+def _extract_arrays_from_any(sec: Any) -> Tuple[List[float], List[Optional[str]]]:
     """
-    Converte para lista de objetos com chaves: c, t (opcional).
-    Aceita:
-      A) colunar: {"c":[...], "t":[...]}
-      B) lista de objetos: [{"c":..., "t":...}, ...]
+    Tenta achar arrays de close (c) e timestamp (t) em várias formas.
+    Retorna (closes[], times[]), com times já convertidos para ISO8601Z quando possível.
     """
-    if isinstance(sec, dict) and "c" in sec and "t" in sec:
-        c = _ensure_list(sec.get("c"))
-        t = _ensure_list(sec.get("t"))
-        out = []
-        for i, cv in enumerate(c):
-            tv = t[i] if i < len(t) else None
-            if isinstance(tv, (int, float)):
-                tv = datetime.fromtimestamp(tv, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-            elif isinstance(tv, str) and tv.isdigit():
-                tv2 = int(tv)
-                tv = datetime.fromtimestamp(tv2, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-            out.append({"c": cv, "t": tv})
-        return out
+    closes: List[float] = []
+    times: List[Optional[str]] = []
+
+    def push_arrays(cand_c: List[Any], cand_t: List[Any]) -> bool:
+        nonlocal closes, times
+        if not cand_c:
+            return False
+        try:
+            c = [float(x) for x in cand_c]
+        except Exception:
+            return False
+        t: List[Optional[str]] = []
+        if cand_t and len(cand_t) == len(c):
+            for tv in cand_t:
+                t.append(_to_iso(tv))
+        else:
+            t = [None] * len(c)
+        closes = c
+        times = t
+        return True
+
+    # 1) dict com "series" colunar
+    if isinstance(sec, dict):
+        ser = sec.get("series")
+        if isinstance(ser, dict):
+            c = _ensure_list(ser.get("c") or ser.get("close") or ser.get("closes") or ser.get("C"))
+            t = _ensure_list(ser.get("t") or ser.get("ts") or ser.get("timestamp") or ser.get("T"))
+            if push_arrays(c, t):
+                return closes, times
+
+        # 2) dict colunar direto
+        c = _ensure_list(sec.get("c") or sec.get("close") or sec.get("closes") or sec.get("C"))
+        t = _ensure_list(sec.get("t") or sec.get("ts") or sec.get("timestamp") or sec.get("T"))
+        if push_arrays(c, t):
+            return closes, times
+
+        # 3) dict com lista de pontos em "series"
+        if isinstance(ser, list):
+            cand_c = []
+            cand_t = []
+            for pt in ser:
+                if isinstance(pt, dict):
+                    cand_c.append(pt.get("c") or pt.get("close") or pt.get("C"))
+                    cand_t.append(pt.get("t") or pt.get("ts") or pt.get("timestamp") or pt.get("T"))
+            if push_arrays(cand_c, cand_t):
+                return closes, times
+
+    # 4) lista de pontos
     if isinstance(sec, list):
-        return sec
-    return _ensure_list(sec)
+        cand_c = []
+        cand_t = []
+        for pt in sec:
+            if isinstance(pt, dict):
+                cand_c.append(pt.get("c") or pt.get("close") or pt.get("C"))
+                cand_t.append(pt.get("t") or pt.get("ts") or pt.get("timestamp") or pt.get("T"))
+        if push_arrays(cand_c, cand_t):
+            return closes, times
+
+    # 5) nada encontrado
+    return [], []
 
 
-def _extract_pct_chg(arr: List[float], win: int) -> Optional[float]:
-    if not arr or len(arr) < win + 1:
+def _extract_pct_chg(closes: List[float], win: int) -> Optional[float]:
+    if not closes or len(closes) < win + 1:
         return None
-    try:
-        old = float(arr[-(win + 1)])
-        new = float(arr[-1])
-        if old == 0:
-            return None
-        return (new - old) / old * 100.0
-    except Exception:
+    old = closes[-(win + 1)]
+    new = closes[-1]
+    if old == 0:
         return None
+    return (new - old) / old * 100.0
 
 
 def _merge_eq_cr(ohl: Dict[str, Any]) -> Dict[str, Any]:
@@ -163,7 +219,7 @@ def _merge_eq_cr(ohl: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-# ---------- indicadores: normalização (somente campos, preserva símbolos) ----------
+# ---------- indicadores: normalização de campos ----------
 
 FIELD_ALIASES = {
     "rsi14": {"RSI14", "rsi14"},
@@ -176,14 +232,11 @@ FIELD_ALIASES = {
 }
 
 def _normalize_indicator_fields(node: Dict[str, Any]) -> Dict[str, Any]:
-    """Normaliza APENAS os nomes de campos de um símbolo; preserva o símbolo em si."""
     out: Dict[str, Any] = {}
     if not isinstance(node, dict):
         return out
-    # coloca tudo em lowercase
     for k, v in node.items():
         out[str(k).lower()] = v
-    # aplica aliases explícitos
     for target, aliases in FIELD_ALIASES.items():
         if target not in out:
             for a in aliases:
@@ -194,7 +247,6 @@ def _normalize_indicator_fields(node: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _normalize_indicators(ind: Dict[str, Any]) -> Dict[str, Any]:
-    """Normaliza APENAS os campos internos; preserva 'eq'/'cr' e chaves de símbolos."""
     out: Dict[str, Any] = {}
     for bucket in ("eq", "cr"):
         node = ind.get(bucket)
@@ -236,66 +288,6 @@ def _prefer_local_from_pointer(ptr: Dict[str, Any], key_url: str, key_path: str)
     raise FileNotFoundError(f"Pointer sem {key_url}/{key_path} válidos ou arquivo local inexistente.")
 
 
-# ---------- métricas a partir das séries ----------
-
-def _extract_close_ts_from_colunar(sec: Dict[str, Any]) -> Tuple[Optional[float], Optional[str]]:
-    c = _ensure_list(sec.get("c"))
-    t = _ensure_list(sec.get("t"))
-    if not c:
-        return None, None
-    last_c = c[-1]
-    ts = None
-    if t and len(t) == len(c):
-        ts = t[-1]
-        if isinstance(ts, (int, float)):
-            ts = datetime.fromtimestamp(ts, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        elif isinstance(ts, str) and ts.isdigit():
-            ts2 = int(ts)
-            ts = datetime.fromtimestamp(ts2, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    return last_c, ts
-
-
-def _extract_close_ts_from_list(sec: List[Dict[str, Any]]) -> Tuple[Optional[float], Optional[str]]:
-    if not sec:
-        return None, None
-    last = sec[-1]
-    last_c = last.get("c")
-    ts = last.get("t")
-    if isinstance(ts, (int, float)):
-        ts = datetime.fromtimestamp(ts, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    elif isinstance(ts, str) and ts.isdigit():
-        ts2 = int(ts)
-        ts = datetime.fromtimestamp(ts2, tz=timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    return last_c, ts
-
-
-def _extract_metrics_from_series(sec: Any) -> Tuple[Optional[float], Optional[str], Optional[float], Optional[float], Optional[float], List[Dict[str, Any]]]:
-    series_list = _series_to_list(sec)
-    closes = [x.get("c") for x in series_list if isinstance(x, dict) and "c" in x]
-    close_now = None
-    if closes:
-        try:
-            close_now = float(closes[-1])
-        except Exception:
-            close_now = None
-
-    if isinstance(sec, dict) and "c" in sec and "t" in sec:
-        close_ts_utc = _extract_close_ts_from_colunar(sec)[1]
-        chg_7d = _extract_pct_chg(_ensure_list(sec.get("c")), 7)
-        chg_10d = _extract_pct_chg(_ensure_list(sec.get("c")), 10)
-        chg_30d = _extract_pct_chg(_ensure_list(sec.get("c")), 30)
-    elif isinstance(sec, list):
-        close_ts_utc = _extract_close_ts_from_list(sec)[1]
-        chg_7d = _extract_pct_chg([float(x.get("c")) for x in sec if isinstance(x, dict) and x.get("c") is not None], 7)
-        chg_10d = _extract_pct_chg([float(x.get("c")) for x in sec if isinstance(x, dict) and x.get("c") is not None], 10)
-        chg_30d = _extract_pct_chg([float(x.get("c")) for x in sec if isinstance(x, dict) and x.get("c") is not None], 30)
-    else:
-        close_ts_utc = None
-        chg_7d = chg_10d = chg_30d = None
-
-    return close_now, close_ts_utc, chg_7d, chg_10d, chg_30d, series_list
-
-
 # ---------- construção do payload ----------
 
 def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
@@ -309,9 +301,7 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
     ind_raw = _read_json(ind_url_or_path)
     sig = _read_json(sig_url_or_path)
 
-    # normaliza SOMENTE campos de indicadores; preserva símbolos
-    ind: Dict[str, Any] = _normalize_indicators(ind_raw)
-
+    indicators: Dict[str, Any] = _normalize_indicators(ind_raw)
     merged = _merge_eq_cr(ohl)
 
     universe_rows: List[Dict[str, Any]] = []
@@ -325,15 +315,27 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
             if sec is None:
                 continue
 
-            # 1) tenta extrair de séries OHLCV (se existirem)
-            close_now, close_ts_utc, chg_7d, chg_10d, chg_30d, series_list = _extract_metrics_from_series(sec)
+            # séries (closes/times)
+            closes, times = _extract_arrays_from_any(sec)
 
-            # 2) indicadores do símbolo (ind[asset_type][sym] ou ind[sym])
+            price_now_close = None
+            price_now_close_at_utc = None
+            if closes:
+                price_now_close = closes[-1]
+            if times:
+                price_now_close_at_utc = times[-1]
+
+            # variações
+            pct_chg_7d = _extract_pct_chg(closes, 7) if closes else None
+            pct_chg_10d = _extract_pct_chg(closes, 10) if closes else None
+            pct_chg_30d = _extract_pct_chg(closes, 30) if closes else None
+
+            # indicadores do símbolo
             ind_node = None
-            if isinstance(ind.get(asset_type), dict):
-                ind_node = ind[asset_type].get(sym)
+            if isinstance(indicators.get(asset_type), dict):
+                ind_node = indicators[asset_type].get(sym)
             if ind_node is None:
-                ind_node = ind.get(sym)
+                ind_node = indicators.get(sym)
 
             rsi14 = atr14 = atr14_pct = bb_ma20 = bb_lower = bb_upper = None
             close_from_ind = None
@@ -346,21 +348,21 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
                 bb_upper = ind_node.get("bb_upper")
                 close_from_ind = ind_node.get("close")
 
-            # 3) fallback de preço: se não houver série, usa CLOSE do indicators
-            if close_now is None and close_from_ind is not None:
+            # fallback de preço: se não houve série, usa CLOSE de indicators
+            if price_now_close is None and close_from_ind is not None:
                 try:
-                    close_now = float(close_from_ind)
+                    price_now_close = float(close_from_ind)
                 except Exception:
                     pass
 
-            # 4) completa atr14_pct se faltar e for possível calcular
-            if atr14_pct is None and atr14 is not None and close_now not in (None, 0):
+            # completa atr14_pct se faltar e for possível calcular
+            if atr14_pct is None and atr14 is not None and price_now_close not in (None, 0):
                 try:
-                    atr14_pct = float(atr14) / float(close_now) * 100.0
+                    atr14_pct = float(atr14) / float(price_now_close) * 100.0
                 except Exception:
                     pass
 
-            # funding e oi_chg_3d_pct (se vieram em sig)
+            # funding e oi_chg_3d_pct se existirem em sig
             funding = None
             oi_chg_3d_pct = None
             if isinstance(sig, dict):
@@ -369,15 +371,23 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
                     funding = sn.get("funding")
                     oi_chg_3d_pct = sn.get("oi_chg_3d_pct")
 
+            # monta linha (inclui features.* para back-compat)
+            features = {
+                "chg_7d_pct": pct_chg_7d,
+                "chg_10d_pct": pct_chg_10d,
+                "chg_30d_pct": pct_chg_30d,
+                "price_now_close_at_utc": price_now_close_at_utc,
+            }
+
             row = {
                 "symbol_canonical": sym,
                 "asset_type": asset_type,
-                "window_used": str(sec.get("window")) if isinstance(sec, dict) and sec.get("window") else "7d",
-                "price_now_close": close_now,
-                "price_now_close_at_utc": close_ts_utc,
-                "pct_chg_7d": chg_7d,
-                "pct_chg_10d": chg_10d,
-                "pct_chg_30d": chg_30d,
+                "window_used": str(sec.get("window")) if isinstance(sec, dict) and sec.get("window") else None,
+                "price_now_close": price_now_close,
+                "price_now_close_at_utc": price_now_close_at_utc,
+                "pct_chg_7d": pct_chg_7d,
+                "pct_chg_10d": pct_chg_10d,
+                "pct_chg_30d": pct_chg_30d,
                 "rsi14": rsi14,
                 "atr14": atr14,
                 "atr14_pct": atr14_pct,
@@ -386,7 +396,7 @@ def build_payload(*, with_universe: bool = False) -> Dict[str, Any]:
                 "bb_upper": bb_upper,
                 "funding": funding,
                 "oi_chg_3d_pct": oi_chg_3d_pct,
-                "source_sections_len": len(series_list) if isinstance(series_list, list) else None,
+                "features": features,
             }
             signals_rows.append(row)
 
