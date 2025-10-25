@@ -1,3 +1,4 @@
+# scripts/hotfix_rebuild_pointer.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -18,13 +19,14 @@ SIG="${SIG_V1:-${SIG_LG:-}}"
 
 jq -n --arg ohl "${OHL:-}" --arg ind "${IND:-}" --arg sig "${SIG:-}" '
 {
-  "ohlcv":       ( $ohl | select(length>0) ) // null,
-  "indicators":  ( $ind | select(length>0) ) // null,
-  "signals":     ( $sig | select(length>0) ) // null,
+  "ohlcv":       (if ($ohl|length)>0 then $ohl else null end),
+  "indicators":  (if ($ind|length)>0 then $ind else null end),
+  "signals":     (if ($sig|length)>0 then $sig else null end),
   "ohlcv_url": null,
   "indicators_url": null,
   "signals_url": null
-}' > public/pointer_signals_v1.json
+}
+' > public/pointer_signals_v1.json
 
 echo "[hotfix] pointer_signals_v1.json:"
 cat public/pointer_signals_v1.json
