@@ -11,8 +11,6 @@ funding,oi_chg_3d_pct,priceguard,window_status,sources_used
 
 import json
 import sys
-import re
-import glob
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -29,45 +27,48 @@ def _latest_glob(pattern: str) -> Path | None:
     return files[-1] if files else None
 
 def _load_pointer_paths() -> dict:
-    ptr = PUB / "pointer_signals_v1.json"
-    if ptr.exists():
-        data = _read_json(ptr)
-        # Estrutura esperada: {"ohlcv":"public/ohlcv_cache_...json","indicators":"public/...json","signals":"public/...json"}
-        out = {}
-        for k in ("ohlcv", "indicators", "signals"):
-            v = data.get(k)
-            if isinstance(v, str):
-                out[k] = (ROOT / v).resolve() if v.startswith("public/") else (ROOT / v).resolve()
-        return out
-    # fallback por glob
-    return {
-        "signals": _latest_glob("n_signals_v1_*.json") or (PUB / "n_signals_v1_latest.json"),
-        "ohlcv": _latest_glob("ohlcv_cache_*.json"),
-        "indicators": _latest_glob("indicators_*.json"),
-    }
+    ptr_file = PUB / "pointer_signals_v1.json"
+    out = {"signals": None, "ohlcv": None, "indicators": None}
+    if ptr_file.exists():
+        try:
+            data = _read_json(ptr_file)
+            for k in ("signals", "ohlcv", "indicators"):
+                v = data.get(k)
+                if isinstance(v, str) and v:
+                    # é relativo a repo
+                    out[k] = (ROOT / v).resolve() if v.startswith("public/") else Path(v).resolve()
+        except Exception:
+            pass
+
+    # Fallbacks por glob
+    if not out["signals"]:
+        out["signals"] = _latest_glob("n_signals_v1_*.json") or (PUB / "n_signals_v1_latest.json")
+    if not out["ohlcv"]:
+        out["ohlcv"] = _latest_glob("ohlcv_cache_*.json")
+    if not out["indicators"]:
+        out["indicators"] = _latest_glob("indicators_*.json")
+
+    return out
 
 def _split_symbol(sym: str) -> tuple[str, str]:
-    # "EXCHANGE:SYMBOL" -> ("EXCHANGE","SYMBOL")
     if ":" in sym:
         ex, ticker = sym.split(":", 1)
         return ex, ticker
     return "", sym
 
-def _pct(a_now: float, a_prev: float) -> float | None:
+def _pct(a_now: float | None, a_prev: float | None) -> float | None:
     try:
-        if a_prev is None or a_prev == 0:
+        if a_now is None or a_prev is None or a_prev == 0:
             return None
-        return (a_now / a_prev - 1.0) * 100.0
+        return (float(a_now) / float(a_prev) - 1.0) * 100.0
     except Exception:
         return None
 
-def _last_close_ts(candles: list) -> str | None:
-    # candles é lista de dicts com "t" (utc iso) e "c" (close)
+def _last_close_ts(candles: list[dict]) -> str | None:
     if not candles:
         return None
     t = candles[-1].get("t")
     if isinstance(t, str):
-        # normaliza para Z
         try:
             dt = datetime.fromisoformat(t.replace("Z", "+00:00")).astimezone(timezone.utc)
             return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00","Z")
@@ -75,8 +76,7 @@ def _last_close_ts(candles: list) -> str | None:
             return t
     return None
 
-def _close_n_days_ago(candles: list, days: int) -> float | None:
-    # Assumimos candles diários ordenados, pegamos índice - (days)
+def _close_n_days_ago(candles: list[dict], days: int) -> float | None:
     if not candles or len(candles) <= days:
         return None
     try:
@@ -88,7 +88,6 @@ def _ensure_bb_upper(bb_ma20, bb_lower) -> float | None:
     try:
         if bb_ma20 is None or bb_lower is None:
             return None
-        # std = (ma - lower)/2  => upper = ma + 2*std = 2*ma - lower
         return 2.0 * float(bb_ma20) - float(bb_lower)
     except Exception:
         return None
@@ -106,12 +105,13 @@ def _sources_used(asset_type: str) -> str:
 
 def main():
     paths = _load_pointer_paths()
-    sig_path = paths.get("signals") or (PUB / "n_signals_v1_latest.json")
+    sig_path = paths.get("signals")
     ohlcv_path = paths.get("ohlcv")
 
     if not sig_path or not Path(sig_path).exists():
         print(f"[erro] signals JSON não encontrado: {sig_path}", file=sys.stderr)
         sys.exit(2)
+
     if not ohlcv_path or not Path(ohlcv_path).exists():
         print(f"[aviso] ohlcv_cache não encontrado; variações pct ficarão nulas: {ohlcv_path}", file=sys.stderr)
         ohlcv = {}
@@ -119,7 +119,8 @@ def main():
         ohlcv = _read_json(Path(ohlcv_path))
 
     signals = _read_json(Path(sig_path))
-    rows = []
+    rows: list[str] = []
+
     header = [
         "symbol_canonical","asset_type","venue","window_used",
         "price_now_close","price_now_close_at_utc",
@@ -131,7 +132,6 @@ def main():
     ]
     rows.append(",".join(header))
 
-    # OHLCV estrutura esperada: {"eq":{"EXC:SYM":[{t, c},...]}, "cr":{...}}
     o_eq = (ohlcv.get("eq") if isinstance(ohlcv, dict) else None) or {}
     o_cr = (ohlcv.get("cr") if isinstance(ohlcv, dict) else None) or {}
 
@@ -147,36 +147,25 @@ def main():
         atr14_pct = s.get("atr14_pct")
         bb_ma20 = s.get("bb_ma20")
         bb_lower = s.get("bb_lower")
-        bb_upper = s.get("bb_upper")
+        bb_upper = s.get("bb_upper") or _ensure_bb_upper(bb_ma20, bb_lower)
         funding = s.get("funding")
         oi_chg_3d_pct = s.get("oi_chg_3d_pct")
 
-        # Deriva bb_upper se vier nulo e tivermos ma e lower
-        if bb_upper is None:
-            bb_upper = _ensure_bb_upper(bb_ma20, bb_lower)
-
-        # Deriva atr14_pct se vier nulo
-        if atr14_pct is None:
-            atr14_pct = _atr_pct(atr14, close_now)
-
-        # Recupera candles e timestamp do último close
-        candles = None
-        key = sym
+        candles: list[dict] = []
         if asset_type == "cr":
-            candles = o_cr.get(key) or []
+            candles = o_cr.get(sym) or []
         else:
-            candles = o_eq.get(key) or []
-        ts_utc = _last_close_ts(candles) if candles else None
+            candles = o_eq.get(sym) or []
 
-        # Calcula pct changes (percentuais em %)
-        c7 = _close_n_days_ago(candles, 7)
+        ts_utc = _last_close_ts(candles) if candles else None
+        c7  = _close_n_days_ago(candles, 7)
         c10 = _close_n_days_ago(candles, 10)
         c30 = _close_n_days_ago(candles, 30)
-        pct7 = _pct(close_now, c7) if close_now is not None else None
-        pct10 = _pct(close_now, c10) if close_now is not None else None
-        pct30 = _pct(close_now, c30) if close_now is not None else None
+        pct7  = _pct(close_now, c7)
+        pct10 = _pct(close_now, c10)
+        pct30 = _pct(close_now, c30)
+        atr14_pct = atr14_pct or _atr_pct(atr14, close_now)
 
-        # Defaults simples para status
         priceguard = "OK"
         window_status = "TARGET"
         src_used = _sources_used(asset_type)
@@ -185,7 +174,6 @@ def main():
             if x is None:
                 return ""
             if isinstance(x, float):
-                # evita notação científica em CSV
                 return f"{x:.12g}"
             return str(x)
 
