@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -43,8 +43,6 @@ def _as_dataframe(obj: SeriesLike) -> pd.DataFrame:
       - [{"t": "...", "c": ...}, ...]
       - dict com arrays paralelos: {"t": [...], "c": [...]}
       - DataFrame com colunas ('t','c') ou equivalentes ('close','timestamp', etc.)
-
-    Qualquer colunas extra são ignoradas.
     """
     if obj is None:
         return pd.DataFrame(columns=["t", "c"])
@@ -62,7 +60,6 @@ def _as_dataframe(obj: SeriesLike) -> pd.DataFrame:
             elif "series" in payload and isinstance(payload["series"], list):
                 df = pd.DataFrame(payload["series"])
             elif "t" in payload and "c" in payload and isinstance(payload["t"], Iterable):
-                # dict com arrays paralelos
                 df = pd.DataFrame({"t": payload["t"], "c": payload["c"]})
             else:
                 # pode ser um map {ts: close}
@@ -96,15 +93,13 @@ def _as_dataframe(obj: SeriesLike) -> pd.DataFrame:
     if colmap:
         df = df.rename(columns=colmap)
 
-    # Garante colunas t e c
+    # Tenta inferir t/c se nomes diferentes
     if "t" not in df.columns and "c" not in df.columns:
-        # tentativas mais agressivas
         possible_t = [c for c in df.columns if c.lower() in {"t", "time", "timestamp", "date", "dt"}]
         possible_c = [c for c in df.columns if c.lower() in {"c", "close", "price", "cl"}]
         if possible_t and possible_c:
             df = df.rename(columns={possible_t[0]: "t", possible_c[0]: "c"})
         else:
-            # sem como inferir
             return pd.DataFrame(columns=["t", "c"])
 
     # Filtra só t e c
@@ -116,21 +111,16 @@ def _as_dataframe(obj: SeriesLike) -> pd.DataFrame:
         def _to_utc(x):
             if pd.isna(x):
                 return pd.NaT
-            # já datetime?
             if isinstance(x, datetime):
                 return x.astimezone(timezone.utc) if x.tzinfo else x.replace(tzinfo=timezone.utc)
-            # numérico epoch?
             if isinstance(x, (int, float)):
-                # segundos ou ms: heurística simples
+                # heurística: > 1e12 assume ms
                 if x > 1e12:
-                    # assume ms
                     return datetime.fromtimestamp(x / 1000.0, tz=timezone.utc)
                 return datetime.fromtimestamp(x, tz=timezone.utc)
-            # string
             try:
                 dt = pd.to_datetime(x, utc=True)
                 if isinstance(dt, pd.Series):
-                    # caso extremo
                     return pd.NaT
                 return dt.to_pydatetime()
             except Exception:
@@ -146,7 +136,6 @@ def _as_dataframe(obj: SeriesLike) -> pd.DataFrame:
     df = df.dropna(subset=["t", "c"])
     df = df.sort_values("t").drop_duplicates(subset=["t"], keep="last").reset_index(drop=True)
 
-    # Garante colunas finais
     if not {"t", "c"}.issubset(df.columns):
         return pd.DataFrame(columns=["t", "c"])
 
@@ -154,12 +143,8 @@ def _as_dataframe(obj: SeriesLike) -> pd.DataFrame:
 
 
 def _prepare(obj: SeriesLike) -> pd.DataFrame:
-    """
-    Wrapper antigo: mantém o nome usado em pontos do código,
-    mas agora aceita DataFrame/dict/lista e sempre retorna DataFrame padronizado.
-    """
-    df = _as_dataframe(obj)
-    return df
+    """Compat: aceita DataFrame/dict/lista e retorna DataFrame padronizado ('t','c')."""
+    return _as_dataframe(obj)
 
 
 # ---------------------------
@@ -207,17 +192,13 @@ def accept_close_eq(stooq_df: SeriesLike, yahoo_df: SeriesLike, threshold_pct: f
     if yh_pt.is_valid and not stq_pt.is_valid:
         return yh, "ONLY_YH"
 
-    # ambos válidos
     diff = _pct_diff(stq_pt.close, yh_pt.close)
     if diff is None:
-        # fallback: escolhe o mais recente
         chosen = yh if (yh_pt.ts_utc or datetime.min) >= (stq_pt.ts_utc or datetime.min) else stq
         return chosen, "BOTH"
     if diff <= threshold_pct:
-        # se batem dentro do threshold, preferir a mais recente
         chosen = yh if (yh_pt.ts_utc or datetime.min) >= (stq_pt.ts_utc or datetime.min) else stq
         return chosen, "BOTH"
-    # divergente acima do limiar: marque mismatch, mas ainda escolha a mais recente
     chosen = yh if (yh_pt.ts_utc or datetime.min) >= (stq_pt.ts_utc or datetime.min) else stq
     return chosen, "MISMATCH"
 
@@ -246,3 +227,48 @@ def accept_close_cr(binance_df: SeriesLike, coingecko_df: SeriesLike, threshold_
         return chosen, "BOTH"
     chosen = bn if (bn_pt.ts_utc or datetime.min) >= (cg_pt.ts_utc or datetime.min) else cg
     return chosen, "MISMATCH"
+
+
+# ---------------------------
+# Sanidade de movimentos (usado pelo job.py)
+# ---------------------------
+
+def _pct_change_over_days(df: pd.DataFrame, days: int) -> Optional[float]:
+    """
+    Retorna variação percentual (último vs valor de ~N dias atrás).
+    Requer pelo menos 2 pontos; se faltar janela, retorna None.
+    """
+    if df is None or df.empty or "t" not in df or "c" not in df:
+        return None
+
+    last = df.iloc[-1]
+    t_last: datetime = last["t"]
+    c_last: float = last["c"]
+
+    if pd.isna(t_last) or pd.isna(c_last):
+        return None
+
+    lim = t_last - timedelta(days=days)
+    # pega o ponto com timestamp <= lim mais próximo
+    prev_df = df[df["t"] <= lim]
+    if prev_df.empty:
+        return None
+    c_prev = prev_df.iloc[-1]["c"]
+    if c_prev == 0 or pd.isna(c_prev):
+        return None
+    return (c_last - c_prev) / abs(c_prev) * 100.0
+
+
+def sanity_last7_abs_move_ok(df_like: SeriesLike, max_abs_pct: float = 25.0) -> bool:
+    """
+    Verifica se o movimento absoluto em ~7 dias não excede 'max_abs_pct'.
+    Retorna True se:
+      - há dados e |pct_change_7d| <= max_abs_pct
+      - ou dados insuficientes (não bloqueia)
+    Retorna False apenas quando há dados suficientes e a variação excede o limite.
+    """
+    df = _prepare(df_like)
+    pct7 = _pct_change_over_days(df, 7)
+    if pct7 is None:
+        return True  # não bloqueia por falta de janela
+    return abs(pct7) <= max_abs_pct
