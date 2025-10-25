@@ -1,164 +1,97 @@
-from __future__ import annotations
-import io
-from typing import Optional, Tuple
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-import pandas as pd
+"""
+Equities/ETFs: utilitários para OHLCV diário.
+
+Exporta as funções esperadas por src.job:
+- fetch_stooq(symbol_canonical: str, limit: int = 120) -> dict
+- fetch_yahoo(symbol_canonical: str, limit: int = 120) -> dict  (usa stooq como fallback)
+
+Formato de retorno (para cada função):
+{
+  "symbol": "NYSEARCA:VUG",
+  "venue": "NYSEARCA",
+  "series": {
+    "c": [float, ...],            # closes
+    "t": ["YYYY-MM-DDTHH:MM:SSZ", ...]  # timestamps UTC ISO8601 (00:00:00Z p/ equities)
+  },
+  "source": "stooq" | "yahoo_fallback_stooq"
+}
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+from pathlib import Path
+from typing import Dict, List, Tuple
+
 import requests
 
+STOOQ_DAILY = "https://stooq.com/q/d/l/?s={symbol}&i=d"
 
-# ==========================================================
-# Helpers de mapeamento
-# ==========================================================
 
 def _split_symbol(sym: str) -> Tuple[str, str]:
+    if ":" in sym:
+        ex, tic = sym.split(":", 1)
+        return ex, tic
+    return "", sym
+
+
+def _canon_to_stooq(sym_canon: str) -> str:
+    # Regra simples: tickers dos EUA -> .us
+    # Ex.: "NASDAQ:NVDA" -> "nvda.us"
+    _, tic = _split_symbol(sym_canon)
+    return f"{tic}.us".lower().replace("/", "-")
+
+
+def _fetch_stooq_arrays(sym_canon: str) -> Tuple[List[float], List[str]]:
+    url = STOOQ_DAILY.format(symbol=_canon_to_stooq(sym_canon))
+    r = requests.get(url, timeout=15)
+    r.raise_for_status()
+    text = r.text
+    reader = csv.DictReader(io.StringIO(text))
+    closes, times = [], []
+    for row in reader:
+        try:
+            c = float(row["Close"])
+            d = row["Date"]  # YYYY-MM-DD
+        except Exception:
+            continue
+        closes.append(c)
+        times.append(f"{d}T00:00:00Z")  # usar meia-noite UTC para fechamento diário
+    return closes, times
+
+
+def fetch_stooq(symbol_canonical: str, limit: int = 120) -> Dict:
     """
-    "NASDAQ:NVDA" -> ("NASDAQ", "NVDA")
+    Baixa OHLCV diário via Stooq e entrega no formato que o src.job consome.
     """
-    parts = sym.strip().upper().split(":")
-    if len(parts) != 2:
-        return "", sym.strip().upper()
-    return parts[0], parts[1]
+    venue, _ = _split_symbol(symbol_canonical)
+    closes, times = _fetch_stooq_arrays(symbol_canonical)
+    # aplica limite (se houver)
+    if limit and len(closes) > limit:
+        closes = closes[-limit:]
+        times = times[-limit:]
+
+    return {
+        "symbol": symbol_canonical,
+        "venue": venue,
+        "series": {"c": closes, "t": times},
+        "source": "stooq",
+    }
 
 
-def _to_stooq_ticker(sym: str) -> Optional[str]:
+def fetch_yahoo(symbol_canonical: str, limit: int = 120) -> Dict:
     """
-    Regras Stooq (US):
-      - ticker minúsculo
-      - "." vira "-" (ex.: BRK.B -> brk-b)
-      - sufixo ".us"
+    Implementação compatível com src.job:
+    - Para reduzir 429 e simplificar, usa Stooq como *fallback* imediato.
+    - Se no futuro quiser Yahoo de verdade, é só trocar aqui.
     """
-    _, tick = _split_symbol(sym)
-    if not tick:
-        return None
-    t = tick.lower().replace(".", "-")
-    return f"{t}.us"
+    data = fetch_stooq(symbol_canonical, limit=limit)
+    data["source"] = "yahoo_fallback_stooq"
+    return data
 
 
-def _to_yahoo_symbol(sym: str) -> Optional[str]:
-    """
-    Yahoo:
-      - Ticker sem venue
-      - "." vira "-" para classes (BRK.B -> BRK-B)
-      - ETFs/ARCA usam o mesmo ticker (VUG)
-    """
-    _, tick = _split_symbol(sym)
-    if not tick:
-        return None
-    return tick.replace(".", "-")
-
-
-# ==========================================================
-# Stooq
-# ==========================================================
-
-_STQ_HEADERS = {
-    "User-Agent": "Mozilla/5.0",
-    "Accept": "*/*",
-    "Connection": "keep-alive",
-}
-
-def _stooq_fetch_csv(url: str) -> pd.DataFrame:
-    try:
-        r = requests.get(url, timeout=15, headers=_STQ_HEADERS)
-        if r.status_code != 200 or ("No data" in r.text):
-            return pd.DataFrame(columns=["date", "close"])
-        df = pd.read_csv(io.StringIO(r.text))
-        if "Date" not in df.columns or "Close" not in df.columns:
-            return pd.DataFrame(columns=["date", "close"])
-        df = df[["Date", "Close"]].rename(columns={"Date": "date", "Close": "close"})
-        df = df.dropna().copy()
-        df["close"] = pd.to_numeric(df["close"], errors="coerce")
-        df = df.dropna(subset=["close"])
-        df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-        df = df.dropna(subset=["date"])
-        return df.reset_index(drop=True)
-    except Exception:
-        return pd.DataFrame(columns=["date", "close"])
-
-
-def fetch_stooq(sym: str, days: int = 30) -> pd.DataFrame:
-    """
-    Stooq CSV diário:
-      https://stooq.com/q/d/l/?s=<ticker>.us&i=d
-    Fallback: http://stooq.com (sem TLS) — útil em ambientes com LibreSSL/TLS antigos.
-    """
-    ticker = _to_stooq_ticker(sym)
-    if not ticker:
-        return pd.DataFrame(columns=["date", "close"])
-
-    url_https = f"https://stooq.com/q/d/l/?s={ticker}&i=d"
-    df = _stooq_fetch_csv(url_https)
-    if not df.empty:
-        return df
-
-    # fallback http
-    url_http = f"http://stooq.com/q/d/l/?s={ticker}&i=d"
-    df2 = _stooq_fetch_csv(url_http)
-    return df2
-
-
-# ==========================================================
-# Yahoo v8 (chart API)
-# ==========================================================
-
-_YH_HEADERS = {
-    "User-Agent": "Mozilla/5.0",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Connection": "keep-alive",
-}
-
-def _yahoo_fetch_chart(base: str, ysym: str) -> pd.DataFrame:
-    # 3 meses para cobrir 30 dias úteis com folga
-    url = f"{base}/{ysym}?range=3mo&interval=1d&includePrePost=false"
-    try:
-        r = requests.get(url, timeout=15, headers=_YH_HEADERS)
-        r.raise_for_status()
-        data = r.json()
-        res = data.get("chart", {}).get("result", [])
-        if not res:
-            return pd.DataFrame(columns=["date", "close"])
-        r0 = res[0]
-        ts = r0.get("timestamp") or []
-        ind = r0.get("indicators", {}) or {}
-        adj = ind.get("adjclose", [])
-        qts = ind.get("quote", [])
-
-        closes = None
-        if isinstance(adj, list) and adj and isinstance(adj[0], dict) and "adjclose" in adj[0]:
-            closes = adj[0]["adjclose"]
-        elif isinstance(qts, list) and qts and isinstance(qts[0], dict) and "close" in qts[0]:
-            closes = qts[0]["close"]
-
-        if not ts or not closes or len(ts) != len(closes):
-            return pd.DataFrame(columns=["date", "close"])
-
-        df = pd.DataFrame({"ts": ts, "close": closes})
-        df = df.dropna(subset=["close"]).copy()
-        df["date"] = pd.to_datetime(df["ts"], unit="s", utc=True).dt.strftime("%Y-%m-%d")
-        df = df[["date", "close"]].copy()
-        df["close"] = pd.to_numeric(df["close"], errors="coerce")
-        df = df.dropna(subset=["close"])
-        return df.reset_index(drop=True)
-    except Exception:
-        return pd.DataFrame(columns=["date", "close"])
-
-
-def fetch_yahoo(sym: str, days: int = 30) -> pd.DataFrame:
-    """
-    Yahoo chart v8 com fallback entre hosts query1 e query2.
-    """
-    ysym = _to_yahoo_symbol(sym)
-    if not ysym:
-        return pd.DataFrame(columns=["date", "close"])
-
-    # host principal
-    base1 = "https://query1.finance.yahoo.com/v8/finance/chart"
-    df = _yahoo_fetch_chart(base1, ysym)
-    if not df.empty:
-        return df
-
-    # fallback host alternativo
-    base2 = "https://query2.finance.yahoo.com/v8/finance/chart"
-    df2 = _yahoo_fetch_chart(base2, ysym)
-    return df2
+__all__ = ["fetch_stooq", "fetch_yahoo"]

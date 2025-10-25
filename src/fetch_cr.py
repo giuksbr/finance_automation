@@ -1,90 +1,52 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Cripto: utilitário simples para klines diários (Binance Futures PERPETUAL),
+caso src.job utilize diretamente.
+
+Exporta:
+- fetch_binance_1d(symbol_canonical: "BINANCE:BTCUSDT", limit=120) -> dict compatível
+"""
+
 from __future__ import annotations
-import requests
-import pandas as pd
+
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Dict, List, Tuple
 
-# -------------------------------------------------------------------
-# Helpers
-# -------------------------------------------------------------------
-def _to_date_iso(ts_ms: int) -> str:
-    # CoinGecko e Binance vêm em ms/seg; normalizamos para data UTC (YYYY-MM-DD)
-    # Binance klines usam ms em k[0]; CoinGecko market_chart usa ms em "prices"
-    return datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc).date().isoformat()
+import requests
 
-def _ensure_ohlc(df: pd.DataFrame) -> pd.DataFrame:
-    # Garante colunas padrão esperadas pelo resto da pipeline
-    cols = ["Date", "open", "high", "low", "close"]
-    for c in cols:
-        if c not in df.columns:
-            df[c] = None
-    return df[cols]
+BINANCE_FAPI = "https://fapi.binance.com"
 
-# -------------------------------------------------------------------
-# Binance (1d klines)
-# sym_can: "BINANCE:BTCUSDT"
-# -------------------------------------------------------------------
-def fetch_binance(sym_can: str, days: int) -> Optional[pd.DataFrame]:
-    try:
-        pair = sym_can.split(":")[1]  # <-- chave correta (ex.: "BTCUSDT")
-    except Exception:
-        return None
 
-    url = f"https://api.binance.com/api/v3/klines?symbol={pair}&interval=1d&limit={max(10, days)}"
-    r = requests.get(url, timeout=20)
-    if r.status_code != 200:
-        return None
+def _to_iso(ts_ms: int) -> str:
+    return (
+        datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def fetch_binance_1d(symbol_canonical: str, limit: int = 120) -> Dict:
+    # "BINANCE:BTCUSDT" -> pair "BTCUSDT"
+    pair = symbol_canonical.split(":", 1)[1].upper() if ":" in symbol_canonical else symbol_canonical.upper()
+    url = f"{BINANCE_FAPI}/fapi/v1/continuousKlines"
+    params = {"pair": pair, "contractType": "PERPETUAL", "interval": "1d", "limit": str(limit)}
+    r = requests.get(url, params=params, timeout=15)
+    r.raise_for_status()
     data = r.json()
-    if not isinstance(data, list) or not data:
-        return None
+    closes, times = [], []
+    for row in data:
+        closes.append(float(row[4]))   # close
+        times.append(_to_iso(int(row[6])))  # close time
 
-    rows = []
-    for k in data:
-        # kline: [open time(ms), open, high, low, close, volume, close time(ms), ...]
-        rows.append({
-            "Date": _to_date_iso(int(k[0])),
-            "open": float(k[1]),
-            "high": float(k[2]),
-            "low":  float(k[3]),
-            "close":float(k[4]),
-        })
-    df = pd.DataFrame(rows)
-    df = _ensure_ohlc(df).sort_values("Date").reset_index(drop=True)
-    return df.tail(days).reset_index(drop=True)
+    return {
+        "symbol": symbol_canonical,
+        "venue": "BINANCE",
+        "series": {"c": closes, "t": times},
+        "source": "binance_futures",
+    }
 
-# -------------------------------------------------------------------
-# CoinGecko (market_chart)
-# sym_can: "BINANCE:BTCUSDT"
-# cg_map:  dict com { "BTCUSDT": "bitcoin", ... }
-# -------------------------------------------------------------------
-def fetch_coingecko(sym_can: str, cg_map: dict, days: int) -> Optional[pd.DataFrame]:
-    try:
-        pair = sym_can.split(":")[1]              # <-- usar o PAR como chave do mapa
-        coin_id = cg_map.get(pair)                # ex.: "BTCUSDT" -> "bitcoin"
-    except Exception:
-        return None
-    if not coin_id:
-        return None
 
-    # CoinGecko aceita days inteiros; pedimos um pouco mais para segurança
-    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?vs_currency=usd&days={max(10, days)}&interval=daily"
-    r = requests.get(url, timeout=20)
-    if r.status_code != 200:
-        return None
-    j = r.json()
-    prices = j.get("prices") or []
-    if not prices:
-        return None
-
-    rows = []
-    for ts_ms, px in prices:
-        rows.append({
-            "Date": _to_date_iso(int(ts_ms)),
-            "open": float(px),
-            "high": float(px),
-            "low":  float(px),
-            "close":float(px),
-        })
-    df = pd.DataFrame(rows)
-    df = _ensure_ohlc(df).sort_values("Date").reset_index(drop=True)
-    return df.tail(days).reset_index(drop=True)
+__all__ = ["fetch_binance_1d"]
