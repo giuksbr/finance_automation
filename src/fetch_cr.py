@@ -1,213 +1,65 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-"""
-Cripto (sem cache): utilitários de OHLC diário compatíveis com src.job.
-
-Exporta as funções que src.job espera:
-- fetch_binance(symbol_canonical: str, limit: int = 120) -> dict
-- fetch_coingecko(symbol_canonical: str, limit: int = 120) -> dict
-
-Formato de retorno:
-{
-  "symbol": "BINANCE:BTCUSDT",
-  "venue": "BINANCE",
-  "series": {
-    "c": [float, ...],                         # closes
-    "t": ["YYYY-MM-DDTHH:MM:SSZ", ...]         # timestamps ISO UTC (close time)
-  },
-  "source": "binance_spot" | "coingecko"
-}
-"""
-
-from __future__ import annotations
-
+# src/fetch_cr.py
 import json
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+import time
+import typing as T
+from urllib.request import urlopen, Request
+from urllib.parse import urlencode
 
-import requests
+Candle = T.Dict[str, T.Union[str, float]]
 
-# ---- Helpers ---------------------------------------------------------------
+def _get_json(url: str, headers=None, timeout=30):
+    req = Request(url, headers=headers or {"User-Agent":"Mozilla/5.0"})
+    with urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
 
-def _to_iso_utc_from_ms(ms: int) -> str:
-    return (
-        datetime.fromtimestamp(ms / 1000.0, tz=timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+def _canon_to_binance_pair(symbol_canonical: str) -> str:
+    # "BINANCE:BTCUSDT" -> "BTCUSDT"
+    if ":" in symbol_canonical:
+        return symbol_canonical.split(":",1)[1]
+    return symbol_canonical
 
-def _to_iso_utc_from_sec(sec: int) -> str:
-    return (
-        datetime.fromtimestamp(sec, tz=timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+def _fetch_binance_one(symbol_canonical: str, days: int=120) -> T.List[Candle]:
+    pair = _canon_to_binance_pair(symbol_canonical)
+    qs = urlencode({"symbol":pair, "interval":"1d", "limit": max(days, 120)})
+    url = f"https://api.binance.com/api/v3/klines?{qs}"
+    arr = _get_json(url)
+    out: T.List[Candle] = []
+    for k in arr:
+        # [openTime, open, high, low, close, volume, closeTime, ...]
+        tms = int(k[0]) // 1000
+        import time as _t
+        iso = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime(tms))
+        out.append({
+            "t": iso,
+            "o": float(k[1]),
+            "h": float(k[2]),
+            "l": float(k[3]),
+            "c": float(k[4]),
+            "v": float(k[5]),
+        })
+    return out[-days:] if days and len(out) > days else out
 
-def _split_symbol(sym: str) -> Tuple[str, str]:
-    # "BINANCE:BTCUSDT" -> ("BINANCE", "BTCUSDT")
-    if ":" in sym:
-        ex, rest = sym.split(":", 1)
-        return ex, rest
-    return "", sym
+def _normalize_input(symbols=None, symbol_canonical=None) -> T.List[str]:
+    if symbols and isinstance(symbols, (list, tuple)):
+        return list(symbols)
+    if symbol_canonical and isinstance(symbol_canonical, str):
+        return [symbol_canonical]
+    if isinstance(symbols, str):
+        return [symbols]
+    return []
 
-# ---- Binance (spot klines) -------------------------------------------------
-
-BINANCE_SPOT = "https://api.binance.com"
-
-def fetch_binance(symbol_canonical: str, limit: int = 120) -> Dict:
-    """
-    Usa /api/v3/klines (spot) com interval=1d.
-    - symbol_canonical: "BINANCE:BTCUSDT", etc.
-    - limit: nº de candles (máx aceito pela API é 1000).
-    Retorno compatível com src.job.
-    """
-    venue, pair = _split_symbol(symbol_canonical)
-    if not pair:
-        raise ValueError(f"symbol_canonical inválido para Binance: {symbol_canonical}")
-
-    url = f"{BINANCE_SPOT}/api/v3/klines"
-    params = {"symbol": pair.upper(), "interval": "1d", "limit": str(max(1, min(limit, 1000)))}
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    rows = r.json()
-
-    closes: List[float] = []
-    times: List[str] = []
-    # Resposta: [ openTime, open, high, low, close, volume, closeTime, ... ]
-    for row in rows:
+def fetch_binance(symbols=None, symbol_canonical=None, days: int=120, **kwargs) -> T.Dict[str, T.List[Candle]]:
+    syms = _normalize_input(symbols, symbol_canonical)
+    out: T.Dict[str, T.List[Candle]] = {}
+    for sc in syms:
         try:
-            close = float(row[4])
-            close_time_ms = int(row[6])
+            out[sc] = _fetch_binance_one(sc, days=days)
+            time.sleep(0.2)
         except Exception:
-            continue
-        closes.append(close)
-        times.append(_to_iso_utc_from_ms(close_time_ms))
+            out[sc] = []
+    return out
 
-    return {
-        "symbol": symbol_canonical,
-        "venue": venue or "BINANCE",
-        "series": {"c": closes, "t": times},
-        "source": "binance_spot",
-    }
-
-# ---- Coingecko -------------------------------------------------------------
-
-# Endpoint: /coins/{id}/market_chart?vs_currency=usd&days=...
-COINGECKO_BASE = "https://api.coingecko.com/api/v3"
-
-# Mapa mínimo de segurança se coingecko_map.json não estiver disponível:
-_FALLBACK_ID_MAP: Dict[str, str] = {
-    "BTC": "bitcoin",
-    "ETH": "ethereum",
-    "SOL": "solana",
-    "LINK": "chainlink",
-    "XRP": "ripple",
-    "FET": "fetch-ai",
-    "ADA": "cardano",
-    "DOT": "polkadot",
-    "ATOM": "cosmos",
-    "ARB": "arbitrum",
-    "OP": "optimism",
-    "AAVE": "aave",
-    "UNI": "uniswap",
-    "LTC": "litecoin",
-    "TRX": "tron",
-    "TON": "the-open-network",
-    "NEAR": "near",
-    "INJ": "injective",
-}
-
-def _load_cg_map() -> Dict[str, str]:
-    """
-    Carrega coingecko_map.json (se existir) da raiz do repo. Formato esperado:
-    { "BTC": "bitcoin", "ETH": "ethereum", ... }
-    """
-    p = Path("coingecko_map.json")
-    if not p.exists():
-        return {}
-    try:
-        with p.open("r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            if isinstance(data, dict):
-                # normaliza chaves para upper
-                return {k.upper(): str(v) for k, v in data.items()}
-    except Exception:
-        pass
-    return {}
-
-def _resolve_cg_id(symbol_canonical: str) -> Optional[str]:
-    """
-    De "BINANCE:BTCUSDT" -> "BTC" -> "bitcoin"
-    """
-    _, right = _split_symbol(symbol_canonical)  # "BTCUSDT"
-    base = right.upper().replace("USDT", "").replace("USD", "")
-    m = _load_cg_map()
-    if base in m:
-        return m[base]
-    return _FALLBACK_ID_MAP.get(base)
-
-def _days_from_limit(limit: int) -> int:
-    """
-    Coingecko 'market_chart' aceita dias (inteiro). Aproxima a partir do número de candles desejado.
-    """
-    # Se queremos ~N candles diários, pedir ligeiramente a mais para garantir cobertura
-    n = max(1, int(limit))
-    return max(1, min(10950, int(n * 1.2)))  # teto ~30 anos
-
-def fetch_coingecko(symbol_canonical: str, limit: int = 120) -> Dict:
-    """
-    Usa /coins/{id}/market_chart?vs_currency=usd&days=...
-    Retorno compatível com src.job.
-    """
-    coin_id = _resolve_cg_id(symbol_canonical)
-    if not coin_id:
-        raise ValueError(f"Não foi possível mapear Coingecko ID para '{symbol_canonical}'")
-
-    days = _days_from_limit(limit)
-    url = f"{COINGECKO_BASE}/coins/{coin_id}/market_chart"
-    params = {"vs_currency": "usd", "days": str(days)}
-    r = requests.get(url, params=params, timeout=25)
-    r.raise_for_status()
-    data = r.json()
-
-    prices = data.get("prices") or []  # [[ts_ms, price], ...]
-    closes: List[float] = []
-    times: List[str] = []
-
-    # Coingecko traz vários pontos intradiários; vamos decimar para 1 ponto/dia aproximado:
-    # Estratégia: pegar o último ponto de cada dia (UTC) — simples e robusto.
-    last_by_day: Dict[str, Tuple[int, float]] = {}
-    for ts_ms, px in prices:
-        # Normaliza para data UTC (YYYY-MM-DD)
-        dt = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
-        day_key = dt.date().isoformat()
-        last_by_day[day_key] = (int(ts_ms), float(px))
-
-    # Ordena por data e monta vetores
-    for day in sorted(last_by_day.keys()):
-        ts_ms, px = last_by_day[day]
-        closes.append(px)
-        times.append(_to_iso_utc_from_ms(ts_ms))
-
-    # aplica limit final
-    if limit and len(closes) > limit:
-        closes = closes[-limit:]
-        times  = times[-limit:]
-
-    venue, _ = _split_symbol(symbol_canonical)
-    return {
-        "symbol": symbol_canonical,
-        "venue": venue or "BINANCE",
-        "series": {"c": closes, "t": times},
-        "source": "coingecko",
-    }
-
-# Alias opcional de compatibilidade (se algum módulo antigo chamar):
-def fetch_binance_1d(symbol_canonical: str, limit: int = 120) -> Dict:
-    return fetch_binance(symbol_canonical, limit=limit)
-
-__all__ = ["fetch_binance", "fetch_coingecko", "fetch_binance_1d"]
+def fetch_coingecko(symbols=None, symbol_canonical=None, days: int=120, **kwargs) -> T.Dict[str, T.List[Candle]]:
+    """Shim compatível: usa Binance por baixo."""
+    return fetch_binance(symbols=symbols, symbol_canonical=symbol_canonical, days=days)

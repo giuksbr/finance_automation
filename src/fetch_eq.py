@@ -1,97 +1,86 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-"""
-Equities/ETFs: utilitários para OHLCV diário.
-
-Exporta as funções esperadas por src.job:
-- fetch_stooq(symbol_canonical: str, limit: int = 120) -> dict
-- fetch_yahoo(symbol_canonical: str, limit: int = 120) -> dict  (usa stooq como fallback)
-
-Formato de retorno (para cada função):
-{
-  "symbol": "NYSEARCA:VUG",
-  "venue": "NYSEARCA",
-  "series": {
-    "c": [float, ...],            # closes
-    "t": ["YYYY-MM-DDTHH:MM:SSZ", ...]  # timestamps UTC ISO8601 (00:00:00Z p/ equities)
-  },
-  "source": "stooq" | "yahoo_fallback_stooq"
-}
-"""
-
-from __future__ import annotations
-
+# src/fetch_eq.py
 import csv
 import io
-from pathlib import Path
-from typing import Dict, List, Tuple
+import time
+import typing as T
+from urllib.request import urlopen, Request
+from urllib.parse import urlencode
 
-import requests
+# Candle padronizado:
+# t: ISO "YYYY-MM-DDT00:00:00Z", o/h/l/c/v: float
+Candle = T.Dict[str, T.Union[str, float]]
 
-STOOQ_DAILY = "https://stooq.com/q/d/l/?s={symbol}&i=d"
+def _canon_to_stooq(symbol_canonical: str) -> str:
+    # "NYSEARCA:VUG" -> "VUG.US"
+    # "NASDAQ:BRK.B" -> "BRK.B.US"
+    if ":" not in symbol_canonical:
+        return f"{symbol_canonical}.US"
+    _, tick = symbol_canonical.split(":", 1)
+    return f"{tick}.US"
 
+def _get(url: str, headers: T.Optional[T.Dict[str,str]]=None, timeout=20) -> bytes:
+    req = Request(url, headers=headers or {"User-Agent":"Mozilla/5.0"})
+    with urlopen(req, timeout=timeout) as r:
+        return r.read()
 
-def _split_symbol(sym: str) -> Tuple[str, str]:
-    if ":" in sym:
-        ex, tic = sym.split(":", 1)
-        return ex, tic
-    return "", sym
-
-
-def _canon_to_stooq(sym_canon: str) -> str:
-    # Regra simples: tickers dos EUA -> .us
-    # Ex.: "NASDAQ:NVDA" -> "nvda.us"
-    _, tic = _split_symbol(sym_canon)
-    return f"{tic}.us".lower().replace("/", "-")
-
-
-def _fetch_stooq_arrays(sym_canon: str) -> Tuple[List[float], List[str]]:
-    url = STOOQ_DAILY.format(symbol=_canon_to_stooq(sym_canon))
-    r = requests.get(url, timeout=15)
-    r.raise_for_status()
-    text = r.text
-    reader = csv.DictReader(io.StringIO(text))
-    closes, times = [], []
-    for row in reader:
-        try:
-            c = float(row["Close"])
-            d = row["Date"]  # YYYY-MM-DD
-        except Exception:
+def _parse_stooq_csv(raw: bytes) -> T.List[Candle]:
+    # CSV: Date,Open,High,Low,Close,Volume
+    out: T.List[Candle] = []
+    s = raw.decode("utf-8", errors="ignore")
+    f = io.StringIO(s)
+    rdr = csv.DictReader(f)
+    for row in rdr:
+        d = row.get("Date") or row.get("date")
+        o = row.get("Open") or row.get("open")
+        h = row.get("High") or row.get("high")
+        l = row.get("Low")  or row.get("low")
+        c = row.get("Close") or row.get("close")
+        v = row.get("Volume") or row.get("volume") or "0"
+        if not (d and c):
             continue
-        closes.append(c)
-        times.append(f"{d}T00:00:00Z")  # usar meia-noite UTC para fechamento diário
-    return closes, times
+        ts = f"{d}T00:00:00Z"
+        try:
+            out.append({
+                "t": ts,
+                "o": float(o or c),
+                "h": float(h or c),
+                "l": float(l or c),
+                "c": float(c),
+                "v": float(v or 0.0),
+            })
+        except:
+            continue
+    return out
 
+def _fetch_stooq_one(symbol_canonical: str, days: int=120) -> T.List[Candle]:
+    st = _canon_to_stooq(symbol_canonical).lower()
+    url = f"https://stooq.com/q/d/l/?{urlencode({'s': st, 'i': 'd'})}"
+    raw = _get(url)
+    candles = _parse_stooq_csv(raw)
+    return candles[-days:] if days and len(candles) > days else candles
 
-def fetch_stooq(symbol_canonical: str, limit: int = 120) -> Dict:
-    """
-    Baixa OHLCV diário via Stooq e entrega no formato que o src.job consome.
-    """
-    venue, _ = _split_symbol(symbol_canonical)
-    closes, times = _fetch_stooq_arrays(symbol_canonical)
-    # aplica limite (se houver)
-    if limit and len(closes) > limit:
-        closes = closes[-limit:]
-        times = times[-limit:]
+def _normalize_input(symbols=None, symbol_canonical=None) -> T.List[str]:
+    if symbols and isinstance(symbols, (list, tuple)):
+        return list(symbols)
+    if symbol_canonical and isinstance(symbol_canonical, str):
+        return [symbol_canonical]
+    if isinstance(symbols, str):
+        return [symbols]
+    return []
 
-    return {
-        "symbol": symbol_canonical,
-        "venue": venue,
-        "series": {"c": closes, "t": times},
-        "source": "stooq",
-    }
+def fetch_stooq(symbols=None, symbol_canonical=None, days: int=120, **kwargs) -> T.Dict[str, T.List[Candle]]:
+    """Equities via Stooq. Retorna {canonical: [candles]}."""
+    syms = _normalize_input(symbols, symbol_canonical)
+    out: T.Dict[str, T.List[Candle]] = {}
+    for sc in syms:
+        try:
+            out[sc] = _fetch_stooq_one(sc, days=days)
+            time.sleep(0.2)
+        except Exception:
+            out[sc] = []
+    return out
 
-
-def fetch_yahoo(symbol_canonical: str, limit: int = 120) -> Dict:
-    """
-    Implementação compatível com src.job:
-    - Para reduzir 429 e simplificar, usa Stooq como *fallback* imediato.
-    - Se no futuro quiser Yahoo de verdade, é só trocar aqui.
-    """
-    data = fetch_stooq(symbol_canonical, limit=limit)
-    data["source"] = "yahoo_fallback_stooq"
-    return data
-
-
-__all__ = ["fetch_stooq", "fetch_yahoo"]
+def fetch_yahoo(symbols=None, symbol_canonical=None, days: int=120, **kwargs) -> T.Dict[str, T.List[Candle]]:
+    """Shim compatível (usa Stooq por baixo)."""
+    return fetch_stooq(symbols=symbols, symbol_canonical=symbol_canonical, days=days)

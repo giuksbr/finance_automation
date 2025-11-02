@@ -1,43 +1,33 @@
+# src/pointer_utils.py
 from __future__ import annotations
-
-import glob
-import json
-import os
+import os, glob, json
 from typing import Optional, Dict, Any
 
+def latest(pattern: str) -> Optional[str]:
+    files = sorted(glob.glob(pattern))
+    return files[-1] if files else None
 
 def prefer_local_from_pointer(
-    ptr: Dict[str, Any],
+    ptr: Optional[Dict[str, Any]],
     key_url: str,
     key_path: str,
     pattern: str,
 ) -> str:
-    """
-    Ordem de preferência:
-      1) caminho local em 'key_path' se existir
-      2) url em 'key_url'
-      3) fallback: arquivo local mais novo que combine com 'pattern'
-      4) FileNotFoundError se nada existir
-    """
-    # (1) caminho local informado:
     p_local = (ptr or {}).get(key_path)
     if isinstance(p_local, str) and p_local and os.path.exists(p_local):
         return p_local
 
-    # (2) url informada:
     p_url = (ptr or {}).get(key_url)
     if isinstance(p_url, str) and p_url:
         return p_url
 
-    # (3) fallback glob
-    candidates = sorted(glob.glob(pattern))
-    if candidates:
-        return candidates[-1]
+    p_glob = latest(pattern)
+    if p_glob:
+        return p_glob
 
     raise FileNotFoundError(
         f"Pointer sem {key_url}/{key_path} válidos e nenhum match para '{pattern}'."
     )
-
 
 def write_pointer(
     ohl_path: Optional[str],
